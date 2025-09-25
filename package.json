@@ -1,0 +1,15 @@
+{
+  "name": "babylon-capsules-scene",
+  "version": "1.0.0",
+  "description": "A simple Babylon.js project with two animated capsules",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "serve": "python3 -m http.server 8000"
+  },
+  "keywords": ["babylonjs", "3d", "webgl", "capsules"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {},
+  "dependencies": {}
+}

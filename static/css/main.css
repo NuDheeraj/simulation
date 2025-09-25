@@ -1,0 +1,143 @@
+/* Main styles for AI Agents Simulation */
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #000;
+    font-family: Arial, sans-serif;
+}
+
+#renderCanvas {
+    width: 100%;
+    height: 100vh;
+    display: block;
+}
+
+#chatPanel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 300px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 15px;
+    border-radius: 10px;
+    display: none;
+}
+
+.floating-chat {
+    position: fixed;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    max-width: 200px;
+    word-wrap: break-word;
+    pointer-events: none;
+    z-index: 10000;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    display: block;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.floating-chat.agent1 {
+    border-color: rgba(255, 0, 0, 0.5);
+}
+
+.floating-chat.agent2 {
+    border-color: rgba(0, 0, 255, 0.5);
+}
+
+#chatInput {
+    width: 100%;
+    padding: 8px;
+    margin: 10px 0;
+    border: none;
+    border-radius: 5px;
+}
+
+#sendButton {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#sendButton:hover {
+    background: #0056b3;
+}
+
+#chatHistory {
+    max-height: 200px;
+    overflow-y: auto;
+    margin: 10px 0;
+}
+
+.message {
+    margin: 5px 0;
+    padding: 5px;
+    border-radius: 3px;
+}
+
+.user-message {
+    background: rgba(0, 123, 255, 0.3);
+}
+
+.agent-message {
+    background: rgba(40, 167, 69, 0.3);
+}
+
+#agentInfo {
+    font-size: 12px;
+    color: #ccc;
+    margin-bottom: 10px;
+}
+
+.controls-info {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 12px;
+}
+
+.error-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    font-family: Arial, sans-serif;
+}
+
+.error-content {
+    background: #dc3545;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 400px;
+}
+
+.error-button {
+    background: white;
+    color: #dc3545;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+}

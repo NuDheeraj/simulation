@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Babylon.js Scene</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100vh;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script>
+        // Wait for Babylon.js to load
+        window.addEventListener('load', function() {
+            // Get the canvas element
+            const canvas = document.getElementById("renderCanvas");
+            
+            // Create the Babylon.js engine
+            const engine = new BABYLON.Engine(canvas, true);
+            
+            // Create the scene
+            const scene = new BABYLON.Scene(engine);
+            
+            // Create a camera (using UniversalCamera for better compatibility)
+            const camera = new BABYLON.UniversalCamera("camera", new BABYLON.Vector3(0, 5, -10), scene);
+            camera.setTarget(BABYLON.Vector3.Zero());
+            
+            // Create lighting
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 0.7;
+            
+            // Create the first capsule (using box if capsule not available)
+            let capsule1;
+            if (BABYLON.MeshBuilder.CreateCapsule) {
+                capsule1 = BABYLON.MeshBuilder.CreateCapsule("capsule1", {
+                    radius: 0.5,
+                    height: 2
+                }, scene);
+            } else {
+                // Fallback to box if capsule not available
+                capsule1 = BABYLON.MeshBuilder.CreateBox("capsule1", {size: 1}, scene);
+            }
+            capsule1.position = new BABYLON.Vector3(-2, 1, 0);
+            
+            // Create material for first capsule
+            const material1 = new BABYLON.StandardMaterial("material1", scene);
+            material1.diffuseColor = new BABYLON.Color3(1, 0.2, 0.2); // Red
+            capsule1.material = material1;
+            
+            // Create the second capsule
+            let capsule2;
+            if (BABYLON.MeshBuilder.CreateCapsule) {
+                capsule2 = BABYLON.MeshBuilder.CreateCapsule("capsule2", {
+                    radius: 0.5,
+                    height: 2
+                }, scene);
+            } else {
+                // Fallback to box if capsule not available
+                capsule2 = BABYLON.MeshBuilder.CreateBox("capsule2", {size: 1}, scene);
+            }
+            capsule2.position = new BABYLON.Vector3(2, 1, 0);
+            
+            // Create material for second capsule
+            const material2 = new BABYLON.StandardMaterial("material2", scene);
+            material2.diffuseColor = new BABYLON.Color3(0.2, 0.2, 1); // Blue
+            capsule2.material = material2;
+            
+            // Add rotation animation
+            let time = 0;
+            scene.registerBeforeRender(() => {
+                time += 0.01;
+                capsule1.rotation.y = Math.sin(time) * 0.5;
+                capsule2.rotation.y = Math.cos(time) * 0.5;
+            });
+            
+            // Add a ground plane
+            const ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 10, height: 10}, scene);
+            const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
+            groundMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+            ground.material = groundMaterial;
+            
+            // Start the render loop
+            engine.runRenderLoop(() => {
+                scene.render();
+            });
+            
+            // Handle window resize
+            window.addEventListener("resize", () => {
+                engine.resize();
+            });
+            
+            console.log("Scene loaded successfully!");
+        });
+    </script>
+</body>
+</html>
