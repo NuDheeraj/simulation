@@ -16,11 +16,15 @@ agent_bp = Blueprint('agents', __name__, url_prefix='/api/agents')
 agent_service = None
 conversation_service = None
 
-def init_services(agents_config):
+def init_services(agents_config, app=None):
     """Initialize services with agent configuration"""
     global agent_service, conversation_service
     agent_service = AgentService(agents_config)
     conversation_service = ConversationService()
+    
+    # Store service reference in app config for cleanup
+    if app:
+        app.config['AGENT_SERVICE'] = agent_service
 
 @agent_bp.route('/')
 def get_agents():
@@ -120,3 +124,182 @@ def reset_conversation(agent_id):
         return jsonify({"message": "Conversation reset successfully"})
     else:
         return jsonify({"error": "Failed to reset conversation"}), 500
+
+@agent_bp.route('/simulation/start', methods=['POST'])
+def start_simulation():
+    """Start the agent simulation"""
+    try:
+        if not agent_service:
+            return jsonify({"error": "Service not initialized"}), 500
+        
+        agent_service.start_simulation()
+        logger.info("Simulation started via API")
+        return jsonify({"message": "Simulation started successfully"})
+        
+    except Exception as e:
+        logger.error(f"Error starting simulation: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@agent_bp.route('/simulation/stop', methods=['POST'])
+def stop_simulation():
+    """Stop the agent simulation"""
+    try:
+        if not agent_service:
+            return jsonify({"error": "Service not initialized"}), 500
+        
+        agent_service.stop_simulation()
+        logger.info("Simulation stopped via API")
+        return jsonify({"message": "Simulation stopped successfully"})
+        
+    except Exception as e:
+        logger.error(f"Error stopping simulation: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@agent_bp.route('/simulation/state')
+def get_simulation_state():
+    """Get current simulation state"""
+    try:
+        if not agent_service:
+            return jsonify({"error": "Service not initialized"}), 500
+        
+        state = agent_service.get_simulation_state()
+        return jsonify(state)
+        
+    except Exception as e:
+        logger.error(f"Error getting simulation state: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@agent_bp.route('/simulation/reset', methods=['POST'])
+def reset_simulation():
+    """Reset the simulation"""
+    try:
+        if not agent_service:
+            return jsonify({"error": "Service not initialized"}), 500
+        
+        agent_service.reset_simulation()
+        logger.info("Simulation reset via API")
+        return jsonify({"message": "Simulation reset successfully"})
+        
+    except Exception as e:
+        logger.error(f"Error resetting simulation: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@agent_bp.route('/<agent_id>/force-decision', methods=['POST'])
+def force_agent_decision(agent_id):
+    """Force an agent to make a decision immediately"""
+    try:
+        if not agent_service:
+            return jsonify({"error": "Service not initialized"}), 500
+        
+        if not agent_service.agent_exists(agent_id):
+            return jsonify({"error": "Agent not found"}), 404
+        
+        decision = agent_service.force_agent_decision(agent_id)
+        if decision:
+            logger.info(f"Forced decision for agent {agent_id}: {decision}")
+            return jsonify({"agent_id": agent_id, "decision": decision})
+        else:
+            return jsonify({"error": "Failed to force decision"}), 500
+        
+    except Exception as e:
+        logger.error(f"Error forcing agent decision: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@agent_bp.route('/<agent_id>/report-movement', methods=['POST'])
+def report_movement_completion(agent_id):
+    """Report movement completion from frontend"""
+    try:
+        if not agent_service:
+            return jsonify({"error": "Service not initialized"}), 500
+        
+        if not agent_service.agent_exists(agent_id):
+            return jsonify({"error": "Agent not found"}), 404
+        
+        data = request.get_json()
+        if not data or 'position' not in data:
+            return jsonify({"error": "Position data required"}), 400
+        
+        agent = agent_service.get_agent(agent_id)
+        if agent:
+            agent.report_movement_completion(data['position'])
+            logger.info(f"Agent {agent_id} reported movement completion to {data['position']}")
+            return jsonify({"message": "Movement completion reported", "agent_id": agent_id})
+        else:
+            return jsonify({"error": "Agent not found"}), 404
+        
+    except Exception as e:
+        logger.error(f"Error reporting movement completion: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@agent_bp.route('/<agent_id>/clear-pending-decision', methods=['POST'])
+def clear_pending_decision(agent_id):
+    """Clear pending decision for an agent"""
+    try:
+        if not agent_service:
+            return jsonify({"error": "Service not initialized"}), 500
+        
+        if not agent_service.agent_exists(agent_id):
+            return jsonify({"error": "Agent not found"}), 404
+        
+        # Clear pending decision is now handled by the world simulator
+        # This endpoint is kept for compatibility but doesn't do anything
+        logger.info(f"Cleared pending decision for agent {agent_id}")
+        return jsonify({"message": "Pending decision cleared", "agent_id": agent_id})
+        
+    except Exception as e:
+        logger.error(f"Error clearing pending decision: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@agent_bp.route('/<agent_id>/brain/decide', methods=['POST'])
+def brain_decide(agent_id):
+    """Brain decision endpoint - receives sensory data and returns decision"""
+    try:
+        if not agent_service:
+            return jsonify({"error": "Service not initialized"}), 500
+        
+        if not agent_service.agent_exists(agent_id):
+            return jsonify({"error": "Agent not found"}), 404
+        
+        data = request.get_json()
+        if not data or 'sensory_data' not in data:
+            return jsonify({"error": "Sensory data required"}), 400
+        
+        sensory_data = data['sensory_data']
+        agent = agent_service.get_agent(agent_id)
+        
+        # Make decision based on sensory input
+        decision = agent.make_decision_from_sensory_data(sensory_data)
+        
+        logger.info(f"Brain {agent_id} decided: {decision}")
+        return jsonify({"agent_id": agent_id, "decision": decision})
+        
+    except Exception as e:
+        logger.error(f"Error in brain decision: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@agent_bp.route('/<agent_id>/brain/action-complete', methods=['POST'])
+def brain_action_complete(agent_id):
+    """Report action completion to brain"""
+    try:
+        if not agent_service:
+            return jsonify({"error": "Service not initialized"}), 500
+        
+        if not agent_service.agent_exists(agent_id):
+            return jsonify({"error": "Agent not found"}), 404
+        
+        data = request.get_json()
+        if not data or 'action_type' not in data:
+            return jsonify({"error": "Action type required"}), 400
+        
+        action_type = data['action_type']
+        result = data.get('result', {})
+        
+        agent = agent_service.get_agent(agent_id)
+        agent.process_action_completion(action_type, result)
+        
+        logger.info(f"Brain {agent_id} processed {action_type} completion")
+        return jsonify({"message": "Action completion processed", "agent_id": agent_id})
+        
+    except Exception as e:
+        logger.error(f"Error processing action completion: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500

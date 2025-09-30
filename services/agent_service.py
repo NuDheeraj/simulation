@@ -3,18 +3,29 @@ Agent service for managing AI agents
 """
 from typing import Dict, Any, List, Optional
 from models.agent import Agent
+from services.brain_coordination_service import BrainCoordinationService
+from utils.logger import setup_logger
+
+logger = setup_logger()
 
 class AgentService:
     """Service for managing AI agents"""
     
     def __init__(self, agents_config: Dict[str, Dict[str, Any]]):
         self.agents: Dict[str, Agent] = {}
+        self.brain_coordination_service = BrainCoordinationService()
         self._initialize_agents(agents_config)
+        self._add_agents_to_brain_coordination()
     
     def _initialize_agents(self, agents_config: Dict[str, Dict[str, Any]]) -> None:
         """Initialize agents from configuration"""
         for agent_id, config in agents_config.items():
             self.agents[agent_id] = Agent(agent_id, config)
+    
+    def _add_agents_to_brain_coordination(self) -> None:
+        """Add all agent brains to the coordination service"""
+        for agent in self.agents.values():
+            self.brain_coordination_service.add_agent_brain(agent)
     
     def get_all_agents(self) -> Dict[str, Dict[str, Any]]:
         """Get all agents as dictionary"""
@@ -46,4 +57,23 @@ class AgentService:
             return False
         
         del self.agents[agent_id]
+        self.brain_coordination_service.remove_agent_brain(agent_id)
         return True
+    
+    def activate_brains(self) -> None:
+        """Activate all agent brains"""
+        self.brain_coordination_service.activate_brains()
+        logger.info("Agent brains activated")
+    
+    def deactivate_brains(self) -> None:
+        """Deactivate all agent brains"""
+        self.brain_coordination_service.deactivate_brains()
+        logger.info("Agent brains deactivated")
+    
+    def get_brain_state(self) -> Dict[str, Any]:
+        """Get current brain coordination state"""
+        return self.brain_coordination_service.get_brain_state()
+    
+    def get_brain_coordination_service(self) -> BrainCoordinationService:
+        """Get the brain coordination service instance"""
+        return self.brain_coordination_service

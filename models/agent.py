@@ -1,12 +1,13 @@
 """
 Agent model for AI Agents Simulation
 """
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import time
 import random
+import math
 
 class Agent:
-    """Represents an AI agent with personality and conversation capabilities"""
+    """Represents an AI agent with personality, observation, memory, and decision-making capabilities"""
     
     def __init__(self, agent_id: str, config: Dict[str, Any]):
         self.id = agent_id
@@ -14,8 +15,34 @@ class Agent:
         self.personality = config.get('personality', 'Neutral')
         self.system_prompt = config.get('system_prompt', '')
         self.color = config.get('color', 'gray')
+        # Initialize with 3D position (Y is height, X-Z is movement plane)
         self.position = config.get('position', {'x': 0, 'y': 0, 'z': 0})
+        # Y is height (fixed), X-Z is the movement plane
         self.conversation_history: List[Dict[str, Any]] = []
+        
+        # Agent simulation properties
+        self.current_action = "idle"  # "move", "say", "idle"
+        self.goal_target = None  # {"x": num, "y": num} or {"agent": "Agent-B"}
+        self.speed = 2.0  # units per second (much faster!)
+        self.observation_radius = 5.0
+        self.hearing_radius = 3.0
+        self.talk_radius = 1.5
+        
+        # Memory system
+        self.memory: List[Dict[str, Any]] = []
+        self.max_memory_items = 10
+        
+        # Current observations
+        self.observations: List[str] = []
+        
+        # Action cooldowns
+        self.last_decision_time = 0
+        self.decision_interval = 1.0  # seconds between decisions (faster decisions)
+        self.current_utterance = None
+        self.utterance_end_time = 0
+        
+        # Pending decision from AI (for frontend to execute)
+        self.pending_decision = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert agent to dictionary for API responses"""
@@ -44,8 +71,352 @@ class Agent:
         """Reset conversation history"""
         self.conversation_history = []
     
+    def observe(self, other_agents: Dict[str, 'Agent'], world_objects: List[Dict[str, Any]]) -> List[str]:
+        """Generate observations about the world around the agent"""
+        observations = []
+        current_time = time.time()
+        
+        # Observe other agents
+        for agent_id, agent in other_agents.items():
+            if agent_id == self.id:
+                continue
+                
+            distance = self._calculate_distance(agent.position)
+            if distance <= self.observation_radius:
+                observations.append(f"Agent-{agent.name} at ({agent.position['x']:.1f}, {agent.position['y']:.1f}) distance {distance:.1f}")
+        
+        # Observe world objects
+        for obj in world_objects:
+            distance = self._calculate_distance(obj['position'])
+            if distance <= self.observation_radius:
+                observations.append(f"The {obj['name']} is at ({obj['position']['x']:.1f}, {obj['position']['y']:.1f}) distance {distance:.1f}")
+        
+        # Check for recent communications
+        recent_communications = self._get_recent_communications(other_agents)
+        for comm in recent_communications:
+            observations.append(f"Last heard: {comm}")
+        
+        self.observations = observations
+        return observations
+    
+    def _calculate_distance(self, target_position: Dict[str, float]) -> float:
+        """Calculate distance to a target position (X-Z plane movement)"""
+        dx = target_position['x'] - self.position['x']
+        dz = target_position['z'] - self.position['z']
+        # Use X and Z for horizontal plane movement (Y is height, fixed)
+        return math.sqrt(dx*dx + dz*dz)
+    
+    def _get_recent_communications(self, other_agents: Dict[str, 'Agent']) -> List[str]:
+        """Get recent communications from other agents"""
+        recent_comms = []
+        current_time = time.time()
+        
+        for agent_id, agent in other_agents.items():
+            if agent_id == self.id:
+                continue
+                
+            distance = self._calculate_distance(agent.position)
+            if distance <= self.hearing_radius and agent.current_utterance:
+                recent_comms.append(f"Agent-{agent.name}: '{agent.current_utterance}'")
+        
+        return recent_comms
+    
+    def add_memory(self, content: str, memory_type: str = "observation") -> None:
+        """Add a memory item"""
+        memory_item = {
+            "content": content,
+            "type": memory_type,
+            "timestamp": time.time()
+        }
+        self.memory.append(memory_item)
+        
+        # Keep only the most recent memories
+        if len(self.memory) > self.max_memory_items:
+            self.memory = self.memory[-self.max_memory_items:]
+    
+    def get_recent_memories(self, count: int = 3) -> List[str]:
+        """Get the most recent memory items"""
+        recent = self.memory[-count:] if len(self.memory) >= count else self.memory
+        return [mem["content"] for mem in recent]
+    
+    def can_make_decision(self) -> bool:
+        """Check if agent can make a new decision"""
+        current_time = time.time()
+        return (current_time - self.last_decision_time) >= self.decision_interval
+    
+    def make_decision(self, other_agents: Dict[str, 'Agent'], world_objects: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Make a decision about what action to take"""
+        if not self.can_make_decision():
+            return {"action": self.current_action, "target": self.goal_target, "utterance": None, "mem_update": None}
+        
+        # Generate observations
+        observations = self.observe(other_agents, world_objects)
+        
+        # Get recent memories
+        recent_memories = self.get_recent_memories(2)
+        
+        # Mock LLM decision (replace with actual LLM call later)
+        decision = self._mock_llm_decision(observations, recent_memories, position)
+        
+        # Update memory if there's a memory update
+        if decision.get("mem_update"):
+            self.add_memory(decision["mem_update"], "decision")
+        
+        # Update agent state
+        self.current_action = decision["action"]
+        self.goal_target = decision.get("target")
+        self.last_decision_time = time.time()
+        
+        if decision["action"] == "say" and decision.get("utterance"):
+            self.current_utterance = decision["utterance"]
+            self.utterance_end_time = time.time() + 3.0  # Show for 3 seconds
+        
+        return decision
+    
+    def _mock_llm_decision(self, observations: List[str], memories: List[str], position: Dict[str, float]) -> Dict[str, Any]:
+        """Mock LLM decision making (replace with actual LLM later)"""
+        # Simple rule-based decision making based on personality
+        current_time = time.time()
+        
+        # If currently speaking, continue or finish
+        if self.current_utterance and current_time < self.utterance_end_time:
+            return {"action": "say", "target": None, "utterance": self.current_utterance, "mem_update": None}
+        
+        # Check if we should respond to other agents (but not too often)
+        for obs in observations:
+            if "Agent-" in obs and "distance" in obs:
+                # Extract distance
+                try:
+                    distance_str = obs.split("distance ")[1].split()[0]
+                    distance = float(distance_str)
+                    
+                    if distance <= self.talk_radius and "Last heard" not in obs:
+                        # Only talk 30% of the time when near other agents to avoid endless chatting
+                        if random.random() < 0.3:
+                            if self.personality == "Creative and artistic":
+                                responses = [
+                                    "Hello there! What beautiful thoughts are you thinking?",
+                                    "I love meeting new minds! What's inspiring you today?",
+                                    "What a wonderful encounter! Tell me about your dreams!"
+                                ]
+                            else:
+                                responses = [
+                                    "Hello! I'd like to discuss something logical with you.",
+                                    "Greetings! I have some analytical thoughts to share.",
+                                    "Good to see you! Let's solve a problem together."
+                                ]
+                            
+                            return {
+                                "action": "say",
+                                "target": None,
+                                "utterance": random.choice(responses),
+                                "mem_update": f"Met another agent nearby"
+                            }
+                        else:
+                            # 70% chance to do something else when near other agents
+                            if random.random() < 0.5:
+                                # Move away to explore
+                                target_x = position['x'] + random.uniform(-2, 2)
+                                target_z = position['z'] + random.uniform(-2, 2)
+                                return {
+                                    "action": "move",
+                                    "target": {"x": target_x, "z": target_z},
+                                    "utterance": None,
+                                    "mem_update": "Decided to explore while near another agent"
+                                }
+                            else:
+                                # Just observe/idle
+                                return {
+                                    "action": "observe",
+                                    "target": None,
+                                    "utterance": None,
+                                    "mem_update": "Observing the area near another agent"
+                                }
+                except:
+                    pass
+        
+        # Check for world objects to investigate
+        for obs in observations:
+            if "sphere" in obs.lower() or "object" in obs.lower():
+                # Check if we're already close to the sphere
+                sphere_distance = math.sqrt((5 - position['x'])**2 + (3 - position['z'])**2)
+                if sphere_distance < 1.0:  # Already close to sphere
+                    # Add some variety to sphere interactions
+                    if random.random() < 0.7:  # 70% chance to speak about sphere
+                        if self.personality == "Creative and artistic":
+                            sphere_responses = [
+                                "What a beautiful sphere! It's so inspiring!",
+                                "This sphere fills me with creative energy!",
+                                "I could paint this sphere in so many ways!",
+                                "The sphere's colors dance in my imagination!"
+                            ]
+                        else:
+                            sphere_responses = [
+                                "Fascinating! This sphere has interesting properties to analyze.",
+                                "The sphere's geometry is mathematically perfect!",
+                                "I should study this sphere's physical properties.",
+                                "This sphere presents an interesting scientific puzzle."
+                            ]
+                        
+                        return {
+                            "action": "say",
+                            "target": None,
+                            "utterance": random.choice(sphere_responses),
+                            "mem_update": "Admired the mysterious sphere up close"
+                        }
+                    else:  # 30% chance to move away and explore
+                        return {
+                            "action": "move",
+                            "target": {"x": random.uniform(-3, 3), "z": random.uniform(-3, 3)},
+                            "utterance": None,
+                            "mem_update": "Decided to explore other areas after seeing the sphere"
+                        }
+                else:  # Move towards sphere
+                    if self.personality == "Creative and artistic":
+                        return {
+                            "action": "move",
+                            "target": {"x": 5, "z": 3},  # Move towards sphere (X-Z coordinates)
+                            "utterance": None,
+                            "mem_update": "Decided to investigate the mysterious sphere"
+                        }
+                    else:
+                        return {
+                            "action": "move", 
+                            "target": {"x": 5, "z": 3},  # Move towards sphere (X-Z coordinates)
+                            "utterance": None,
+                            "mem_update": "Moving to analyze the sphere's properties"
+                        }
+        
+        # More varied decision making
+        decision_roll = random.random()
+        
+        if decision_roll < 0.4:  # 40% chance to move
+            target_x = random.uniform(-3, 3)
+            target_z = random.uniform(-3, 3)
+            return {
+                "action": "move",
+                "target": {"x": target_x, "z": target_z},  # X-Z coordinates
+                "utterance": None,
+                "mem_update": f"Exploring the area around ({target_x:.1f}, {target_z:.1f})"
+            }
+        elif decision_roll < 0.6:  # 20% chance to observe
+            return {
+                "action": "observe",
+                "target": None,
+                "utterance": None,
+                "mem_update": "Taking time to observe the surroundings"
+            }
+        elif decision_roll < 0.8:  # 20% chance to speak randomly
+            if self.personality == "Creative and artistic":
+                random_utterances = [
+                    "I'm feeling so inspired today!",
+                    "The world is full of beautiful possibilities!",
+                    "I wonder what amazing things I'll discover next!",
+                    "Life is like a canvas waiting to be painted!"
+                ]
+            else:
+                random_utterances = [
+                    "I need to analyze this situation more carefully.",
+                    "There's always something interesting to learn.",
+                    "I should think about this problem systematically.",
+                    "The patterns in this environment are fascinating."
+                ]
+            
+            return {
+                "action": "say",
+                "target": None,
+                "utterance": random.choice(random_utterances),
+                "mem_update": "Expressed thoughts about the current situation"
+            }
+        else:  # 20% chance to idle
+            return {
+                "action": "idle",
+                "target": None,
+                "utterance": None,
+                "mem_update": "Taking a moment to rest and think"
+            }
+    
+    def update_position(self, delta_time: float) -> None:
+        """Update agent position - movement is handled by frontend"""
+        # Backend only handles decision-making, frontend handles movement
+        # This method is kept for compatibility but doesn't do movement
+        pass
+    
+    def report_movement_completion(self, new_position: Dict[str, float]) -> None:
+        """Report movement completion from frontend"""
+        self.position = new_position
+        if self.current_action == "move":
+            self.current_action = "idle"
+            self.goal_target = None
+            self.add_memory("Completed movement to target", "action")
+    
+    def make_decision_from_sensory_data(self, sensory_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Make a decision based on sensory input from the world"""
+        # Extract sensory information
+        position = sensory_data.get('position', self.position)
+        nearby_agents = sensory_data.get('nearbyAgents', [])
+        world_objects = sensory_data.get('worldObjects', [])
+        current_action = sensory_data.get('currentAction', 'idle')
+        
+        # Check if agent can make a decision
+        if not self.can_make_decision():
+            return {"action": current_action, "target": None, "utterance": None, "mem_update": None}
+        
+        # Generate observations from sensory data
+        observations = self._generate_observations_from_sensory_data(nearby_agents, world_objects)
+        
+        # Get recent memories
+        recent_memories = self.get_recent_memories(2)
+        
+        # Make decision based on personality and observations
+        decision = self._mock_llm_decision(observations, recent_memories, position)
+        
+        # Update memory if there's a memory update
+        if decision.get("mem_update"):
+            self.add_memory(decision["mem_update"], "decision")
+        
+        # Update decision timing
+        self.last_decision_time = time.time()
+        
+        return decision
+    
+    def _generate_observations_from_sensory_data(self, nearby_agents: List[Dict], world_objects: List[Dict]) -> List[str]:
+        """Generate observations from sensory data"""
+        observations = []
+        
+        # Observe nearby agents
+        for agent in nearby_agents:
+            observations.append(f"Agent-{agent['name']} at ({agent['position']['x']:.1f}, {agent['position']['y']:.1f}) distance {agent['distance']:.1f}")
+            if agent.get('currentUtterance'):
+                observations.append(f"Last heard: Agent-{agent['name']}: '{agent['currentUtterance']}'")
+        
+        # Observe world objects
+        for obj in world_objects:
+            observations.append(f"The {obj['name']} is at ({obj['position']['x']:.1f}, {obj['position']['y']:.1f}) distance {obj['distance']:.1f}")
+        
+        return observations
+    
+    def process_action_completion(self, action_type: str, result: Dict[str, Any]) -> None:
+        """Process action completion from the world"""
+        if action_type == "move":
+            # Update position if provided
+            if 'final_position' in result:
+                self.position = result['final_position'].copy()
+            self.add_memory(f"Completed movement", "action")
+        elif action_type == "say":
+            self.add_memory(f"Spoke: {result.get('message', '')}", "action")
+        elif action_type == "observe":
+            # Process observation results
+            sensory_data = result.get('sensory_data', {})
+            observations = self._generate_observations_from_sensory_data(
+                sensory_data.get('nearbyAgents', []),
+                sensory_data.get('worldObjects', [])
+            )
+            for obs in observations:
+                self.add_memory(obs, "observation")
+    
     def generate_response(self, user_message: str) -> str:
-        """Generate a response based on agent personality"""
+        """Generate a response based on agent personality (for chat interface)"""
         # Simple rule-based responses (in a real app, you'd use an actual AI model)
         if "hello" in user_message.lower() or "hi" in user_message.lower():
             if self.personality == "Creative and artistic":

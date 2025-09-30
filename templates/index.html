@@ -26,14 +26,43 @@
         • Click spheres to chat with agents
     </div>
     
+    <div id="simulationControls">
+        <h3>Agent Simulation</h3>
+        <div class="control-buttons">
+            <button id="startSimulation" class="sim-btn start-btn">Start Simulation</button>
+            <button id="stopSimulation" class="sim-btn stop-btn">Stop Simulation</button>
+            <button id="resetSimulation" class="sim-btn reset-btn">Reset</button>
+        </div>
+        <div class="simulation-status">
+            <span id="simulationStatus">Stopped</span>
+        </div>
+        <div class="agent-controls">
+            <h4>Force Agent Decisions:</h4>
+            <button id="forceAgent1" class="agent-btn">Force Alice Decision</button>
+            <button id="forceAgent2" class="agent-btn">Force Bob Decision</button>
+        </div>
+    </div>
+    
     <!-- Babylon.js CDN -->
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     
-    <!-- Modular JavaScript -->
+    <!-- Core JavaScript -->
     <script src="{{ url_for('static', filename='js/scene.js') }}"></script>
     <script src="{{ url_for('static', filename='js/chatbubbles.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/agents.js') }}"></script>
+    
+    <!-- Modules -->
+    <script src="{{ url_for('static', filename='js/modules/agent-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/world-simulator.js') }}"></script>
+    
+    <!-- Systems -->
+    <script src="{{ url_for('static', filename='js/systems/movement-system.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/systems/sensory-system.js') }}"></script>
+    
+    <!-- Services -->
+    <script src="{{ url_for('static', filename='js/services/brain-service.js') }}"></script>
+    
+    <!-- Application -->
     <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>

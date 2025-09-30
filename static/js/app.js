@@ -4,7 +4,7 @@
 class AIAgentsApp {
     constructor() {
         this.sceneManager = null;
-        this.agentManager = null;
+        this.worldSimulator = null;
         this.chatManager = null;
         this.initialized = false;
     }
@@ -20,12 +20,12 @@ class AIAgentsApp {
             this.sceneManager = new SceneManager();
             await this.sceneManager.initialize();
             
-            // Initialize agent manager
-            this.agentManager = new AgentManager(this.sceneManager);
-            await this.agentManager.loadAgents();
+            // Initialize world simulator
+            this.worldSimulator = new WorldSimulator(this.sceneManager);
+            await this.worldSimulator.loadAgents();
             
             // Initialize chat manager
-            this.chatManager = new ChatManager(this.agentManager);
+            this.chatManager = new ChatManager(this.worldSimulator);
             if (!this.chatManager.initialize()) {
                 throw new Error('Failed to initialize chat manager');
             }
@@ -117,8 +117,8 @@ class AIAgentsApp {
     /**
      * Get agent manager
      */
-    getAgentManager() {
-        return this.agentManager;
+    getWorldSimulator() {
+        return this.worldSimulator;
     }
 
     /**
@@ -127,13 +127,131 @@ class AIAgentsApp {
     getChatManager() {
         return this.chatManager;
     }
+    
+    /**
+     * Start the agent simulation
+     */
+    async startSimulation() {
+        if (!this.initialized) {
+            console.error('Application not initialized');
+            return;
+        }
+        
+        await this.worldSimulator.startSimulation();
+    }
+    
+    /**
+     * Stop the agent simulation
+     */
+    async stopSimulation() {
+        if (!this.initialized) {
+            console.error('Application not initialized');
+            return;
+        }
+        
+        await this.worldSimulator.stopSimulation();
+    }
+    
+    /**
+     * Reset the simulation
+     */
+    async resetSimulation() {
+        if (!this.initialized) {
+            console.error('Application not initialized');
+            return;
+        }
+        
+        await this.worldSimulator.resetSimulation();
+    }
+    
+    /**
+     * Force an agent to make a decision
+     */
+    async forceAgentDecision(agentId) {
+        if (!this.initialized) {
+            console.error('Application not initialized');
+            return;
+        }
+        
+        return await this.worldSimulator.forceAgentDecision(agentId);
+    }
+    
+    /**
+     * Check if simulation is running
+     */
+    isSimulationRunning() {
+        return this.worldSimulator ? this.worldSimulator.isSimulationRunning() : false;
+    }
 }
 
 // Initialize application when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
     window.app = new AIAgentsApp();
     await window.app.initialize();
+    
+    // Setup simulation controls
+    setupSimulationControls();
 });
+
+// Setup simulation control event listeners
+function setupSimulationControls() {
+    const startBtn = document.getElementById('startSimulation');
+    const stopBtn = document.getElementById('stopSimulation');
+    const resetBtn = document.getElementById('resetSimulation');
+    const forceAgent1Btn = document.getElementById('forceAgent1');
+    const forceAgent2Btn = document.getElementById('forceAgent2');
+    const statusSpan = document.getElementById('simulationStatus');
+    
+    if (startBtn) {
+        startBtn.addEventListener('click', async () => {
+            await window.app.startSimulation();
+            updateSimulationStatus();
+        });
+    }
+    
+    if (stopBtn) {
+        stopBtn.addEventListener('click', async () => {
+            await window.app.stopSimulation();
+            updateSimulationStatus();
+        });
+    }
+    
+    if (resetBtn) {
+        resetBtn.addEventListener('click', async () => {
+            await window.app.resetSimulation();
+            updateSimulationStatus();
+        });
+    }
+    
+    if (forceAgent1Btn) {
+        forceAgent1Btn.addEventListener('click', async () => {
+            await window.app.forceAgentDecision('agent1');
+        });
+    }
+    
+    if (forceAgent2Btn) {
+        forceAgent2Btn.addEventListener('click', async () => {
+            await window.app.forceAgentDecision('agent2');
+        });
+    }
+    
+    // Update status periodically
+    setInterval(updateSimulationStatus, 1000);
+}
+
+// Update simulation status display
+function updateSimulationStatus() {
+    const statusSpan = document.getElementById('simulationStatus');
+    const statusDiv = statusSpan?.parentElement;
+    
+    if (statusSpan && statusDiv) {
+        const isRunning = window.app.isSimulationRunning();
+        statusSpan.textContent = isRunning ? 'Running' : 'Stopped';
+        
+        // Update CSS classes
+        statusDiv.className = 'simulation-status ' + (isRunning ? 'running' : 'stopped');
+    }
+}
 
 // Export for global access
 window.AIAgentsApp = AIAgentsApp;

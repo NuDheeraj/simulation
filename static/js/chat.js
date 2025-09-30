@@ -2,8 +2,8 @@
  * Chat management module for AI Agents Simulation
  */
 class ChatManager {
-    constructor(agentManager) {
-        this.agentManager = agentManager;
+    constructor(worldSimulator) {
+        this.worldSimulator = worldSimulator;
         this.selectedAgent = null;
         this.chatPanel = null;
         this.chatHistory = null;
@@ -51,7 +51,7 @@ class ChatManager {
      */
     selectAgent(agentId) {
         this.selectedAgent = agentId;
-        const agent = this.agentManager.getAgent(agentId);
+        const agent = this.worldSimulator.agents.get(agentId);
         
         if (!agent) {
             console.error('Agent not found:', agentId);
@@ -96,7 +96,7 @@ class ChatManager {
             
             const agentDiv = document.createElement('div');
             agentDiv.className = 'message agent-message';
-            agentDiv.textContent = `${this.agentManager.getAgent(this.selectedAgent).name}: ${msg.agent}`;
+            agentDiv.textContent = `${this.worldSimulator.agents.get(this.selectedAgent).name}: ${msg.agent}`;
             this.chatHistory.appendChild(agentDiv);
         });
     }
@@ -129,7 +129,7 @@ class ChatManager {
             this.addAgentMessage(data.agent_name, data.response);
             
             // Update floating chat bubble
-            this.agentManager.updateFloatingChatMessage(this.selectedAgent, data.response);
+            this.worldSimulator.updateFloatingChatMessage(this.selectedAgent, data.response);
             
             // Scroll to bottom
             this.chatHistory.scrollTop = this.chatHistory.scrollHeight;
