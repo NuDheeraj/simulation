@@ -67,6 +67,86 @@ class WorldSimulator {
         });
         
         console.log('Created world sphere at (5, 0.5, 3)');
+        
+        // Create coins
+        this.createCoins();
+    }
+    
+    /**
+     * Create 3D coin objects with rotation animation
+     */
+    createCoins() {
+        const scene = this.sceneManager.getScene();
+        if (!scene) {
+            console.error('Scene not initialized');
+            return;
+        }
+        
+        // Get uncollected coins from sensory system
+        const uncollectedCoins = this.sensorySystem.getUncollectedCoins();
+        
+        uncollectedCoins.forEach(coin => {
+            this.createCoinMesh(coin);
+        });
+        
+        console.log(`Created ${uncollectedCoins.length} coins in the scene`);
+    }
+    
+    /**
+     * Create a single coin mesh with rotation animation
+     */
+    createCoinMesh(coin) {
+        const scene = this.sceneManager.getScene();
+        if (!scene) return;
+        
+        // Create coin as a cylinder (flat disk) - oriented horizontally
+        const coinMesh = BABYLON.MeshBuilder.CreateCylinder(coin.id, {
+            height: 0.05,  // Very thin like a real coin
+            diameter: 0.4, // Slightly smaller diameter
+            tessellation: 16
+        }, scene);
+        
+        // Rotate the cylinder 90 degrees to make it flat (like a coin lying on the ground)
+        coinMesh.rotation.x = Math.PI / 2; // Rotate around X-axis to make it horizontal
+        
+        // Position the coin
+        coinMesh.position = new BABYLON.Vector3(
+            coin.position.x, 
+            coin.position.y, 
+            coin.position.z
+        );
+        
+        // Create golden material for coin
+        const coinMaterial = new BABYLON.StandardMaterial(`${coin.id}_material`, scene);
+        coinMaterial.diffuseColor = new BABYLON.Color3(1, 0.8, 0.2); // Gold color
+        coinMaterial.emissiveColor = new BABYLON.Color3(0.1, 0.05, 0.0); // Slight glow
+        coinMaterial.specularColor = new BABYLON.Color3(0.8, 0.6, 0.1);
+        coinMesh.material = coinMaterial;
+        
+        // Add rotation animation around Y-axis (vertical spinning)
+        scene.registerBeforeRender(() => {
+            coinMesh.rotation.y += 0.02; // Rotate around Y-axis (vertical spinning)
+        });
+        
+        // Store reference for later removal
+        if (!this.coinMeshes) {
+            this.coinMeshes = new Map();
+        }
+        this.coinMeshes.set(coin.id, coinMesh);
+        
+        console.log(`Created coin ${coin.id} at (${coin.position.x}, ${coin.position.y}, ${coin.position.z})`);
+    }
+    
+    /**
+     * Remove a coin from the scene when collected
+     */
+    removeCoin(coinId) {
+        if (this.coinMeshes && this.coinMeshes.has(coinId)) {
+            const coinMesh = this.coinMeshes.get(coinId);
+            coinMesh.dispose();
+            this.coinMeshes.delete(coinId);
+            console.log(`Removed coin ${coinId} from scene`);
+        }
     }
 
     /**
@@ -140,8 +220,30 @@ class WorldSimulator {
         this.decisionInterval = setInterval(async () => {
             if (this.simulationRunning) {
                 await this.requestDecisionsFromBrains();
+                // Check for coin collection
+                this.checkCoinCollection();
             }
         }, 2000); // Ask brains for decisions every 2 seconds
+    }
+    
+    /**
+     * Check for coin collection by all agents
+     */
+    checkCoinCollection() {
+        for (const [agentId, agent] of this.agentManager.getAllAgents()) {
+            const collectedCoin = this.sensorySystem.checkCoinCollection(agentId);
+            if (collectedCoin) {
+                // Remove coin from 3D scene
+                this.removeCoin(collectedCoin.id);
+                
+                // Update agent memory about collecting coin
+                this.agentManager.updateAgentState(agentId, {
+                    currentAction: 'idle' // Reset action after collecting
+                });
+                
+                console.log(`Agent ${agentId} collected coin ${collectedCoin.id}`);
+            }
+        }
     }
 
     /**
@@ -316,13 +418,37 @@ class WorldSimulator {
                 }
             });
             
+            // Reset coins
+            this.resetCoins();
+            
             // Update visual positions
             this.agentManager.updateVisualPositions();
             
-            console.log('Simulation reset - agents returned to initial positions');
+            console.log('Simulation reset - agents returned to initial positions and coins regenerated');
         } catch (error) {
             console.error('Error resetting simulation:', error);
         }
+    }
+    
+    /**
+     * Reset all coins to uncollected state and regenerate positions
+     */
+    resetCoins() {
+        // Clear existing coin meshes
+        if (this.coinMeshes) {
+            this.coinMeshes.forEach((mesh, coinId) => {
+                mesh.dispose();
+            });
+            this.coinMeshes.clear();
+        }
+        
+        // Regenerate coins in sensory system
+        this.sensorySystem.generateCoins();
+        
+        // Create new coin meshes
+        this.createCoins();
+        
+        console.log('Coins reset and regenerated');
     }
 
     /**
@@ -348,6 +474,21 @@ class WorldSimulator {
      */
     isSimulationRunning() {
         return this.simulationRunning;
+    }
+    
+    /**
+     * Get current coin statistics
+     */
+    getCoinStats() {
+        const uncollectedCoins = this.sensorySystem.getUncollectedCoins();
+        const totalCoins = 10; // We always generate 10 coins
+        const collectedCoins = totalCoins - uncollectedCoins.length;
+        
+        return {
+            total: totalCoins,
+            collected: collectedCoins,
+            remaining: uncollectedCoins.length
+        };
     }
 }
 

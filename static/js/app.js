@@ -251,6 +251,18 @@ function updateSimulationStatus() {
         // Update CSS classes
         statusDiv.className = 'simulation-status ' + (isRunning ? 'running' : 'stopped');
     }
+    
+    // Update coin statistics
+    updateCoinStats();
+}
+
+// Update coin collection statistics
+function updateCoinStats() {
+    const coinStatsDiv = document.getElementById('coinStats');
+    if (coinStatsDiv && window.app && window.app.getWorldSimulator()) {
+        const stats = window.app.getWorldSimulator().getCoinStats();
+        coinStatsDiv.textContent = `Coins: ${stats.collected}/${stats.total} collected (${stats.remaining} remaining)`;
+    }
 }
 
 // Export for global access

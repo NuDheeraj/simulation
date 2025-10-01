@@ -182,7 +182,7 @@ class Agent:
         if self.current_utterance and current_time < self.utterance_end_time:
             return {"action": "say", "target": None, "utterance": self.current_utterance, "mem_update": None}
         
-        # Check if we should respond to other agents (but not too often)
+        # Check if we should respond to other agents (discuss exploration paths)
         for obs in observations:
             if "Agent-" in obs and "distance" in obs:
                 # Extract distance
@@ -191,38 +191,42 @@ class Agent:
                     distance = float(distance_str)
                     
                     if distance <= self.talk_radius and "Last heard" not in obs:
-                        # Only talk 30% of the time when near other agents to avoid endless chatting
-                        if random.random() < 0.3:
+                        # Only talk 40% of the time when near other agents to discuss exploration
+                        if random.random() < 0.4:
                             if self.personality == "Creative and artistic":
                                 responses = [
-                                    "Hello there! What beautiful thoughts are you thinking?",
-                                    "I love meeting new minds! What's inspiring you today?",
-                                    "What a wonderful encounter! Tell me about your dreams!"
+                                    "Hello! I've been exploring the northern areas - found some interesting spots!",
+                                    "Hi there! I've checked the eastern side, lots of open space to search.",
+                                    "Hey! I've been wandering around the center - have you found any coins there?",
+                                    "Hello! I've explored the western areas - what paths have you taken?",
+                                    "Hi! I've been searching systematically - found some good areas to check!"
                                 ]
                             else:
                                 responses = [
-                                    "Hello! I'd like to discuss something logical with you.",
-                                    "Greetings! I have some analytical thoughts to share.",
-                                    "Good to see you! Let's solve a problem together."
+                                    "Hello! I've systematically explored the northern quadrant - no coins there.",
+                                    "Greetings! I've mapped the eastern region - it's mostly clear.",
+                                    "Hi! I've analyzed the central area - what's your exploration status?",
+                                    "Hello! I've covered the western section - any findings to share?",
+                                    "Greetings! I've been methodically searching - what areas have you covered?"
                                 ]
                             
                             return {
                                 "action": "say",
                                 "target": None,
                                 "utterance": random.choice(responses),
-                                "mem_update": f"Met another agent nearby"
+                                "mem_update": f"Met another agent and discussed exploration paths"
                             }
                         else:
-                            # 70% chance to do something else when near other agents
-                            if random.random() < 0.5:
-                                # Move away to explore
-                                target_x = position['x'] + random.uniform(-2, 2)
-                                target_z = position['z'] + random.uniform(-2, 2)
+                            # 60% chance to continue exploring when near other agents
+                            if random.random() < 0.7:
+                                # Move away to continue exploring
+                                target_x = position['x'] + random.uniform(-3, 3)
+                                target_z = position['z'] + random.uniform(-3, 3)
                                 return {
                                     "action": "move",
                                     "target": {"x": target_x, "z": target_z},
                                     "utterance": None,
-                                    "mem_update": "Decided to explore while near another agent"
+                                    "mem_update": "Continuing exploration after meeting another agent"
                                 }
                             else:
                                 # Just observe/idle
@@ -235,7 +239,42 @@ class Agent:
                 except:
                     pass
         
-        # Check for world objects to investigate
+        # Check for coins to collect (highest priority)
+        for obs in observations:
+            if "coin" in obs.lower():
+                # Extract coin position from observation
+                try:
+                    # Parse observation like "The coin is at (x, y) distance d"
+                    parts = obs.split("at (")[1].split(")")[0].split(", ")
+                    coin_x = float(parts[0])
+                    coin_y = float(parts[1])
+                    
+                    # Check if we're already close to the coin
+                    coin_distance = math.sqrt((coin_x - position['x'])**2 + (coin_y - position['z'])**2)
+                    if coin_distance < 0.8:  # Close to coin - just collect it silently
+                        return {
+                            "action": "move",
+                            "target": {"x": coin_x, "z": coin_y},
+                            "utterance": None,
+                            "mem_update": "Moving to collect the coin"
+                        }
+                    else:  # Move towards coin
+                        return {
+                            "action": "move",
+                            "target": {"x": coin_x, "z": coin_y},
+                            "utterance": None,
+                            "mem_update": "Spotted a coin and moving to collect it"
+                        }
+                except:
+                    # If parsing fails, just move towards any coin
+                    return {
+                        "action": "move",
+                        "target": {"x": random.uniform(-4, 4), "z": random.uniform(-4, 4)},
+                        "utterance": None,
+                        "mem_update": "Looking for coins to collect"
+                    }
+        
+        # Check for world objects to investigate (sphere)
         for obs in observations:
             if "sphere" in obs.lower() or "object" in obs.lower():
                 # Check if we're already close to the sphere
@@ -287,39 +326,39 @@ class Agent:
                             "mem_update": "Moving to analyze the sphere's properties"
                         }
         
-        # More varied decision making
+        # More varied decision making - focused on exploration and coin hunting
         decision_roll = random.random()
         
-        if decision_roll < 0.4:  # 40% chance to move
-            target_x = random.uniform(-3, 3)
-            target_z = random.uniform(-3, 3)
+        if decision_roll < 0.6:  # 60% chance to move (increased to find coins)
+            target_x = random.uniform(-4, 4)  # Increased range to find coins
+            target_z = random.uniform(-4, 4)  # Increased range to find coins
             return {
                 "action": "move",
                 "target": {"x": target_x, "z": target_z},  # X-Z coordinates
                 "utterance": None,
-                "mem_update": f"Exploring the area around ({target_x:.1f}, {target_z:.1f})"
+                "mem_update": f"Exploring the area around ({target_x:.1f}, {target_z:.1f}) looking for coins"
             }
-        elif decision_roll < 0.6:  # 20% chance to observe
+        elif decision_roll < 0.7:  # 10% chance to observe
             return {
                 "action": "observe",
                 "target": None,
                 "utterance": None,
                 "mem_update": "Taking time to observe the surroundings"
             }
-        elif decision_roll < 0.8:  # 20% chance to speak randomly
+        elif decision_roll < 0.85:  # 15% chance to speak randomly
             if self.personality == "Creative and artistic":
                 random_utterances = [
-                    "I'm feeling so inspired today!",
-                    "The world is full of beautiful possibilities!",
-                    "I wonder what amazing things I'll discover next!",
-                    "Life is like a canvas waiting to be painted!"
+                    "I'm on a treasure hunt! This is so exciting!",
+                    "I love exploring new areas - you never know what you'll find!",
+                    "I'm feeling inspired to search every corner of this world!",
+                    "This exploration is like painting a map with my footsteps!"
                 ]
             else:
                 random_utterances = [
-                    "I need to analyze this situation more carefully.",
-                    "There's always something interesting to learn.",
-                    "I should think about this problem systematically.",
-                    "The patterns in this environment are fascinating."
+                    "I need to systematically search this area for coins.",
+                    "There must be more coins hidden somewhere around here.",
+                    "I should analyze the most efficient search patterns.",
+                    "The exploration strategy needs to be more methodical."
                 ]
             
             return {
@@ -328,7 +367,7 @@ class Agent:
                 "utterance": random.choice(random_utterances),
                 "mem_update": "Expressed thoughts about the current situation"
             }
-        else:  # 20% chance to idle
+        else:  # 15% chance to idle
             return {
                 "action": "idle",
                 "target": None,

@@ -70,6 +70,11 @@ class SensorySystem {
         const observationRadius = 5.0;
 
         for (const [objectId, worldObject] of this.worldObjects) {
+            // Skip collected coins
+            if (worldObject.type === 'collectible' && worldObject.collected) {
+                continue;
+            }
+            
             const distance = Math.sqrt(
                 Math.pow(worldObject.position.x - agent.position.x, 2) +
                 Math.pow(worldObject.position.z - agent.position.z, 2)
@@ -88,6 +93,58 @@ class SensorySystem {
 
         return visibleObjects;
     }
+    
+    /**
+     * Check for coin collection by an agent
+     */
+    checkCoinCollection(agentId) {
+        const agent = this.agentManager.getAgent(agentId);
+        if (!agent) return null;
+
+        const collectionRadius = 0.5; // Agents can collect coins within 0.5 units
+        let collectedCoin = null;
+
+        for (const [objectId, worldObject] of this.worldObjects) {
+            if (worldObject.type === 'collectible' && !worldObject.collected) {
+                const distance = Math.sqrt(
+                    Math.pow(worldObject.position.x - agent.position.x, 2) +
+                    Math.pow(worldObject.position.z - agent.position.z, 2)
+                );
+
+                if (distance <= collectionRadius) {
+                    // Mark coin as collected
+                    worldObject.collected = true;
+                    collectedCoin = {
+                        id: objectId,
+                        name: worldObject.name,
+                        position: { ...worldObject.position }
+                    };
+                    console.log(`Agent ${agentId} collected coin ${objectId}`);
+                    break; // Only collect one coin at a time
+                }
+            }
+        }
+
+        return collectedCoin;
+    }
+    
+    /**
+     * Get all uncollected coins
+     */
+    getUncollectedCoins() {
+        const uncollectedCoins = [];
+        for (const [objectId, worldObject] of this.worldObjects) {
+            if (worldObject.type === 'collectible' && !worldObject.collected) {
+                uncollectedCoins.push({
+                    id: objectId,
+                    name: worldObject.name,
+                    position: { ...worldObject.position },
+                    type: worldObject.type
+                });
+            }
+        }
+        return uncollectedCoins;
+    }
 
     /**
      * Initialize world objects
@@ -100,6 +157,31 @@ class SensorySystem {
             position: { x: 5, y: 0.5, z: 3 },
             type: 'landmark'
         });
+        
+        // Generate 10 random coins
+        this.generateCoins();
+    }
+    
+    /**
+     * Generate 10 random coins in the world
+     */
+    generateCoins() {
+        for (let i = 0; i < 10; i++) {
+            const coinId = `coin_${i}`;
+            const coin = {
+                id: coinId,
+                name: 'coin',
+                position: {
+                    x: (Math.random() - 0.5) * 8, // Random between -4 and 4
+                    y: 0.3, // Slightly above ground
+                    z: (Math.random() - 0.5) * 8  // Random between -4 and 4
+                },
+                type: 'collectible',
+                collected: false
+            };
+            this.worldObjects.set(coinId, coin);
+        }
+        console.log('Generated 10 coins in the world');
     }
 
     /**
