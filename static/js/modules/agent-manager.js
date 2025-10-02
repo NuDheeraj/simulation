@@ -66,6 +66,9 @@ class AgentManager {
             }
             capsule.material = material;
             
+            // Create visibility sphere around agent
+            this.createVisibilitySphere(agentId, agent, scene);
+            
             // Add click event
             capsule.actionManager = new BABYLON.ActionManager(scene);
             capsule.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPickTrigger, () => {
@@ -79,6 +82,40 @@ class AgentManager {
             this.agentSpheres.set(agentId, capsule);
             console.log(`Stored sphere reference for ${agentId}`);
         });
+    }
+    
+    /**
+     * Create visibility sphere around an agent
+     */
+    createVisibilitySphere(agentId, agent, scene) {
+        // Create visibility sphere - much smaller to match world scale
+        const visibilitySphere = BABYLON.MeshBuilder.CreateSphere(`${agentId}_visibility`, {
+            diameter: 2, // 1 unit radius (much smaller, appropriate for world scale)
+            segments: 8
+        }, scene);
+        
+        // Position at agent location
+        visibilitySphere.position = new BABYLON.Vector3(agent.position.x, agent.position.y, agent.position.z);
+        
+        // Create transparent material with agent's color - more visible
+        const visibilityMaterial = new BABYLON.StandardMaterial(`${agentId}_visibility_material`, scene);
+        if (agent.color === 'red') {
+            visibilityMaterial.diffuseColor = new BABYLON.Color3(1, 0.3, 0.3);
+        } else {
+            visibilityMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 1);
+        }
+        visibilityMaterial.alpha = 0.3; // More visible
+        visibilityMaterial.wireframe = true; // Show as wireframe
+        visibilityMaterial.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.1); // More visible glow
+        visibilitySphere.material = visibilityMaterial;
+        
+        // Store reference for updates
+        if (!this.visibilitySpheres) {
+            this.visibilitySpheres = new Map();
+        }
+        this.visibilitySpheres.set(agentId, visibilitySphere);
+        
+        console.log(`Created visibility sphere for ${agentId} with radius 1`);
     }
 
     /**
@@ -142,10 +179,20 @@ class AgentManager {
             }
         });
         
+        // Remove all visibility spheres
+        if (this.visibilitySpheres) {
+            this.visibilitySpheres.forEach((sphere, agentId) => {
+                if (sphere) {
+                    sphere.dispose();
+                }
+            });
+            this.visibilitySpheres.clear();
+        }
+        
         // Clear the agent spheres reference
         this.agentSpheres.clear();
         
-        console.log('Cleared all agent spheres');
+        console.log('Cleared all agent spheres and visibility spheres');
     }
 
     /**
@@ -162,6 +209,14 @@ class AgentManager {
                 console.log(`Updated ${agentId} visual position to (${agent.position.x}, ${agent.position.y}, ${agent.position.z})`);
             } else {
                 console.error(`No sphere found for agent ${agentId}`);
+            }
+            
+            // Update visibility sphere position
+            const visibilitySphere = this.visibilitySpheres?.get(agentId);
+            if (visibilitySphere) {
+                visibilitySphere.position.x = agent.position.x;
+                visibilitySphere.position.y = agent.position.y;
+                visibilitySphere.position.z = agent.position.z;
             }
         });
     }

@@ -24,7 +24,7 @@ class Agent:
         self.current_action = "idle"  # "move", "say", "idle"
         self.goal_target = None  # {"x": num, "y": num} or {"agent": "Agent-B"}
         self.speed = 2.0  # units per second (much faster!)
-        self.observation_radius = 5.0
+        self.observation_radius = 1.0
         self.hearing_radius = 3.0
         self.talk_radius = 1.5
         
@@ -191,8 +191,8 @@ class Agent:
                     distance = float(distance_str)
                     
                     if distance <= self.talk_radius and "Last heard" not in obs:
-                        # Only talk 40% of the time when near other agents to discuss exploration
-                        if random.random() < 0.4:
+                        # Only talk 50% of the time when near other agents to discuss exploration
+                        if random.random() < 0.5:
                             if self.personality == "Creative and artistic":
                                 responses = [
                                     "Hello! I've been exploring the northern areas - found some interesting spots!",
@@ -217,8 +217,8 @@ class Agent:
                                 "mem_update": f"Met another agent and discussed exploration paths"
                             }
                         else:
-                            # 60% chance to continue exploring when near other agents
-                            if random.random() < 0.7:
+                            # 50% chance to continue exploring when near other agents
+                            if random.random() < 0.5:
                                 # Move away to continue exploring
                                 target_x = position['x'] + random.uniform(-3, 3)
                                 target_z = position['z'] + random.uniform(-3, 3)
@@ -326,26 +326,33 @@ class Agent:
                             "mem_update": "Moving to analyze the sphere's properties"
                         }
         
-        # More varied decision making - focused on exploration and coin hunting
+        # More varied decision making - focused on exploration and coin hunting within visibility
         decision_roll = random.random()
         
-        if decision_roll < 0.6:  # 60% chance to move (increased to find coins)
-            target_x = random.uniform(-4, 4)  # Increased range to find coins
-            target_z = random.uniform(-4, 4)  # Increased range to find coins
+        if decision_roll < 0.7:  # 70% chance to move (increased to find coins within visibility)
+            # Move in a more systematic pattern to explore the area
+            # Try to move to unexplored areas within reasonable distance
+            target_x = position['x'] + random.uniform(-3, 3)  # Move within 3 units
+            target_z = position['z'] + random.uniform(-3, 3)  # Move within 3 units
+            
+            # Keep within world bounds
+            target_x = max(-4, min(4, target_x))
+            target_z = max(-4, min(4, target_z))
+            
             return {
                 "action": "move",
                 "target": {"x": target_x, "z": target_z},  # X-Z coordinates
                 "utterance": None,
-                "mem_update": f"Exploring the area around ({target_x:.1f}, {target_z:.1f}) looking for coins"
+                "mem_update": f"Exploring nearby area around ({target_x:.1f}, {target_z:.1f}) within visibility range"
             }
-        elif decision_roll < 0.7:  # 10% chance to observe
+        elif decision_roll < 0.8:  # 10% chance to observe
             return {
                 "action": "observe",
                 "target": None,
                 "utterance": None,
                 "mem_update": "Taking time to observe the surroundings"
             }
-        elif decision_roll < 0.85:  # 15% chance to speak randomly
+        elif decision_roll < 0.9:  # 10% chance to speak randomly
             if self.personality == "Creative and artistic":
                 random_utterances = [
                     "I'm on a treasure hunt! This is so exciting!",
@@ -367,7 +374,7 @@ class Agent:
                 "utterance": random.choice(random_utterances),
                 "mem_update": "Expressed thoughts about the current situation"
             }
-        else:  # 15% chance to idle
+        else:  # 10% chance to idle
             return {
                 "action": "idle",
                 "target": None,

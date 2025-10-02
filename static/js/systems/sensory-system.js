@@ -27,14 +27,14 @@ class SensorySystem {
     }
 
     /**
-     * Get nearby agents within observation radius
+     * Get nearby agents within observation radius (visibility sphere)
      */
     getNearbyAgents(agentId) {
         const agent = this.agentManager.getAgent(agentId);
         if (!agent) return [];
 
         const nearbyAgents = [];
-        const observationRadius = 5.0;
+        const observationRadius = 1.0; // Matches visibility sphere radius
 
         for (const [otherId, otherAgent] of this.agentManager.getAllAgents()) {
             if (otherId === agentId) continue;
@@ -44,6 +44,7 @@ class SensorySystem {
                 Math.pow(otherAgent.position.z - agent.position.z, 2)
             );
 
+            // Only detect agents within the visibility sphere
             if (distance <= observationRadius) {
                 nearbyAgents.push({
                     id: otherId,
@@ -60,14 +61,14 @@ class SensorySystem {
     }
 
     /**
-     * Get visible world objects
+     * Get visible world objects within visibility sphere
      */
     getVisibleObjects(agentId) {
         const agent = this.agentManager.getAgent(agentId);
         if (!agent) return [];
 
         const visibleObjects = [];
-        const observationRadius = 5.0;
+        const observationRadius = 1.0; // Matches visibility sphere radius
 
         for (const [objectId, worldObject] of this.worldObjects) {
             // Skip collected coins
@@ -80,6 +81,7 @@ class SensorySystem {
                 Math.pow(worldObject.position.z - agent.position.z, 2)
             );
 
+            // Only detect objects within the visibility sphere
             if (distance <= observationRadius) {
                 visibleObjects.push({
                     id: objectId,
@@ -95,13 +97,14 @@ class SensorySystem {
     }
     
     /**
-     * Check for coin collection by an agent
+     * Check for coin collection by an agent (within visibility sphere)
      */
     checkCoinCollection(agentId) {
         const agent = this.agentManager.getAgent(agentId);
         if (!agent) return null;
 
         const collectionRadius = 0.5; // Agents can collect coins within 0.5 units
+        const visibilityRadius = 1.0; // Must be within visibility sphere
         let collectedCoin = null;
 
         for (const [objectId, worldObject] of this.worldObjects) {
@@ -111,7 +114,8 @@ class SensorySystem {
                     Math.pow(worldObject.position.z - agent.position.z, 2)
                 );
 
-                if (distance <= collectionRadius) {
+                // Only collect coins that are both within collection range AND visibility sphere
+                if (distance <= collectionRadius && distance <= visibilityRadius) {
                     // Mark coin as collected
                     worldObject.collected = true;
                     collectedCoin = {
@@ -119,7 +123,7 @@ class SensorySystem {
                         name: worldObject.name,
                         position: { ...worldObject.position }
                     };
-                    console.log(`Agent ${agentId} collected coin ${objectId}`);
+                    console.log(`Agent ${agentId} collected coin ${objectId} within visibility sphere`);
                     break; // Only collect one coin at a time
                 }
             }

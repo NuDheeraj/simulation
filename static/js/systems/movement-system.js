@@ -64,6 +64,14 @@ class MovementSystem {
             sphere.position.x = agent.position.x;
             sphere.position.z = agent.position.z;
             
+            // Update visibility sphere position
+            const visibilitySphere = this.agentManager.visibilitySpheres?.get(agentId);
+            if (visibilitySphere) {
+                visibilitySphere.position.x = agent.position.x;
+                visibilitySphere.position.y = agent.position.y;
+                visibilitySphere.position.z = agent.position.z;
+            }
+            
             if (progress < 1) {
                 requestAnimationFrame(animate);
             } else {
@@ -123,6 +131,14 @@ class MovementSystem {
             sphere.position.x = startPosition.x + (targetPosition.x - startPosition.x) * progress;
             sphere.position.z = startPosition.z + (targetPosition.z - startPosition.z) * progress;
             
+            // Update visibility sphere position
+            const visibilitySphere = this.agentManager.visibilitySpheres?.get(agentId);
+            if (visibilitySphere) {
+                visibilitySphere.position.x = sphere.position.x;
+                visibilitySphere.position.y = sphere.position.y;
+                visibilitySphere.position.z = sphere.position.z;
+            }
+            
             if (progress < 1) {
                 requestAnimationFrame(animate);
             } else {
@@ -174,6 +190,14 @@ class MovementSystem {
                     sphere.position.x = agentState.position.x;
                     sphere.position.y = agentState.position.y;
                     sphere.position.z = agentState.position.z;
+                    
+                    // Update visibility sphere position
+                    const visibilitySphere = this.agentManager.visibilitySpheres?.get(agentId);
+                    if (visibilitySphere) {
+                        visibilitySphere.position.x = agentState.position.x;
+                        visibilitySphere.position.y = agentState.position.y;
+                        visibilitySphere.position.z = agentState.position.z;
+                    }
                 }
             }
         }
