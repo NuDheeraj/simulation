@@ -156,7 +156,7 @@ class Agent:
         recent_memories = self.get_recent_memories(2)
         
         # Mock LLM decision (replace with actual LLM call later)
-        decision = self._mock_llm_decision(observations, recent_memories, position)
+        decision = self._mock_llm_decision(observations, recent_memories, self.position)
         
         # Update memory if there's a memory update
         if decision.get("mem_update"):
@@ -217,8 +217,8 @@ class Agent:
                                 "mem_update": f"Met another agent and discussed exploration paths"
                             }
                         else:
-                            # 50% chance to continue exploring when near other agents
-                            if random.random() < 0.5:
+                            # 80% chance to continue exploring when near other agents (reduced idle chance)
+                            if random.random() < 0.8:
                                 # Move away to continue exploring
                                 target_x = position['x'] + random.uniform(-3, 3)
                                 target_z = position['z'] + random.uniform(-3, 3)
@@ -374,7 +374,7 @@ class Agent:
                 "utterance": random.choice(random_utterances),
                 "mem_update": "Expressed thoughts about the current situation"
             }
-        else:  # 10% chance to idle
+        else:  # 5% chance to idle (reduced from 10%)
             return {
                 "action": "idle",
                 "target": None,

@@ -37,3 +37,4 @@ app.js
 2. **Simulation**: `world-simulator.js` → `sensory-system.js` → `brain-service.js`
 3. **Actions**: `world-simulator.js` → `movement-system.js` → `agent-manager.js`
 4. **Rendering**: `agent-manager.js` → `chatbubbles.js` → `scene.js`
+

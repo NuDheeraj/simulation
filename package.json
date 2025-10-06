@@ -1,15 +1,22 @@
 {
-  "name": "babylon-capsules-scene",
+  "name": "ai-agents-simulation",
   "version": "1.0.0",
-  "description": "A simple Babylon.js project with two animated capsules",
+  "description": "AI Agents Simulation with TypeScript frontend",
   "main": "index.html",
   "scripts": {
     "start": "python3 -m http.server 8000",
-    "serve": "python3 -m http.server 8000"
+    "serve": "python3 -m http.server 8000",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "dev": "concurrently \"tsc --watch\" \"python3 -m http.server 8000\""
   },
-  "keywords": ["babylonjs", "3d", "webgl", "capsules"],
+  "keywords": ["babylonjs", "3d", "webgl", "ai", "simulation", "typescript"],
   "author": "",
   "license": "MIT",
-  "devDependencies": {},
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/babylonjs": "^6.0.0",
+    "concurrently": "^8.2.2"
+  },
   "dependencies": {}
 }

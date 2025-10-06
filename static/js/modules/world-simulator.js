@@ -10,7 +10,8 @@ class WorldSimulator {
         this.brainService = new BrainService();
         this.chatBubbleManager = new ChatBubbleManager(sceneManager);
         this.simulationRunning = false;
-        this.decisionInterval = null;
+        this.observationInterval = null;
+        this.agentLastDecisionTime = new Map(); // Track when agents last made decisions
     }
 
     /**
@@ -31,6 +32,11 @@ class WorldSimulator {
             this.agentManager.createAgentSpheres(this.sceneManager.getScene(), this.chatBubbleManager);
             this.sensorySystem.initializeWorldObjects();
             this.createWorldObjects();
+            
+            // Initialize observations for all agents
+            for (const agentId of Object.keys(agentConfigs)) {
+                this.sensorySystem.initializeObservations(agentId);
+            }
         } catch (error) {
             console.error('Error loading agents:', error);
             throw error;
@@ -187,6 +193,10 @@ class WorldSimulator {
         try {
             this.simulationRunning = true;
             this.startBrainDecisionLoop();
+            
+            // Trigger initial decisions for all agents when simulation starts
+            await this.triggerInitialDecisions();
+            
             console.log('World simulation started - agents will begin making decisions');
         } catch (error) {
             console.error('Error starting simulation:', error);
@@ -199,9 +209,9 @@ class WorldSimulator {
     async stopSimulation() {
         try {
             this.simulationRunning = false;
-            if (this.decisionInterval) {
-                clearInterval(this.decisionInterval);
-                this.decisionInterval = null;
+            if (this.observationInterval) {
+                clearInterval(this.observationInterval);
+                this.observationInterval = null;
             }
             console.log('World simulation stopped');
         } catch (error) {
@@ -210,20 +220,111 @@ class WorldSimulator {
     }
 
     /**
-     * Start the brain decision loop - ask brains for decisions every 2 seconds
+     * Start the brain decision loop - now event-driven instead of timer-based
      */
     startBrainDecisionLoop() {
-        if (this.decisionInterval) {
-            clearInterval(this.decisionInterval);
-        }
+        // No longer using intervals - decisions are triggered by events
+        console.log('Event-driven decision system activated');
         
-        this.decisionInterval = setInterval(async () => {
+        // Start a periodic check for interesting observations (much less frequent than before)
+        this.observationInterval = setInterval(() => {
             if (this.simulationRunning) {
-                await this.requestDecisionsFromBrains();
-                // Check for coin collection
+                this.checkForInterestingObservations();
                 this.checkCoinCollection();
+                
+                // Check all idle agents and trigger decisions if needed
+                this.checkIdleAgents();
             }
-        }, 2000); // Ask brains for decisions every 2 seconds
+        }, 500); // Check every 500ms for observation changes
+    }
+    
+    /**
+     * Check for interesting observations that should trigger decisions
+     */
+    checkForInterestingObservations() {
+        this.sensorySystem.checkForInterestingChangesAll();
+    }
+    
+    /**
+     * Helper method to trigger decisions from other systems
+     */
+    triggerDecision(agentId, type, details = {}) {
+        if (type === 'observation') {
+            this.triggerAgentDecision(agentId, `observation: ${details.observationType}`, details);
+        } else if (type === 'action_completion') {
+            this.triggerAgentDecision(agentId, `action_completion: ${details.actionType}`, details);
+        }
+    }
+    
+    
+    /**
+     * Trigger initial decisions for all agents when simulation starts
+     */
+    async triggerInitialDecisions() {
+        console.log('Triggering initial decisions for all agents...');
+        
+        const agents = Array.from(this.agentManager.getAllAgents().entries());
+        
+        for (let i = 0; i < agents.length; i++) {
+            const [agentId, agent] = agents[i];
+            if (agent.currentAction === 'idle') {
+                console.log(`Triggering initial decision for agent ${agentId}`);
+                await this.requestDecisionFromBrain(agentId);
+                
+                // Track decision time
+                this.agentLastDecisionTime.set(agentId, Date.now());
+                
+                // Small delay between agents to avoid overwhelming the system
+                if (i < agents.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+        }
+    }
+    
+    /**
+     * Check all idle agents and trigger decisions if needed
+     */
+    async checkIdleAgents() {
+        const currentTime = Date.now();
+        const stuckThreshold = 5000; // 5 seconds
+        
+        for (const [agentId, agent] of this.agentManager.getAllAgents()) {
+            if (agent.currentAction !== 'idle') continue;
+            
+            const lastDecisionTime = this.agentLastDecisionTime.get(agentId) || 0;
+            const timeSinceLastDecision = currentTime - lastDecisionTime;
+            
+            // Only check for stuck agents (sensory system handles interesting things)
+            if (timeSinceLastDecision > stuckThreshold) {
+                console.log(`Agent ${agentId} has been idle for ${timeSinceLastDecision}ms, forcing decision`);
+                
+                // Small delay to avoid immediate re-triggering
+                setTimeout(async () => {
+                    if (agent.currentAction === 'idle') {
+                        await this.requestDecisionFromBrain(agentId);
+                        this.agentLastDecisionTime.set(agentId, Date.now());
+                    }
+                }, 200); // 200ms delay
+            }
+        }
+    }
+    
+    /**
+     * Trigger a decision for an agent
+     */
+    async triggerAgentDecision(agentId, reason, details = {}) {
+        if (!this.simulationRunning) return;
+        
+        const agent = this.agentManager.getAgent(agentId);
+        if (!agent) return;
+        
+        // For observation triggers, only trigger if agent is idle
+        if (reason.includes('observation') && agent.currentAction !== 'idle') return;
+        
+        console.log(`Agent ${agentId} triggered decision due to ${reason}:`, details);
+        await this.requestDecisionFromBrain(agentId);
+        this.agentLastDecisionTime.set(agentId, Date.now());
     }
     
     /**
@@ -242,6 +343,12 @@ class WorldSimulator {
                 });
                 
                 console.log(`Agent ${agentId} collected coin ${collectedCoin.id}`);
+                
+                // Trigger new decision after coin collection
+                this.triggerAgentDecision(agentId, 'action_completion: collect_coin', {
+                    coin_id: collectedCoin.id,
+                    coin_position: collectedCoin.position
+                });
             }
         }
     }
@@ -337,6 +444,12 @@ class WorldSimulator {
                 message: message,
                 duration: 3000
             });
+            
+            // Trigger new decision after speech completion
+            this.triggerAgentDecision(agentId, 'action_completion: say', {
+                message: message,
+                duration: 3000
+            });
         }, 3000);
     }
 
@@ -357,6 +470,11 @@ class WorldSimulator {
         
         // Report completion to brain with observation results
         this.brainService.reportActionCompletion(agentId, 'observe', {
+            sensory_data: sensoryData
+        });
+        
+        // Trigger new decision after observation completion
+        this.triggerAgentDecision(agentId, 'action_completion: observe', {
             sensory_data: sensoryData
         });
     }

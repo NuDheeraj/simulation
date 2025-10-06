@@ -126,10 +126,12 @@ static/js/
 #### 3. **World Simulator** (`static/js/modules/world-simulator.js`)
 - **Purpose**: Main coordinator and world state management
 - **Key Features**:
-  - **Simulation Lifecycle**: Start, stop, reset simulation
+  - **Event-Driven Simulation**: Triggers decisions based on events, not timers
   - **Decision Coordination**: Request decisions from agent brains
   - **Action Execution**: Coordinate movement, speech, and observation
+  - **Anti-Stuck Monitoring**: Periodic checks for idle agents near interesting things
   - **System Integration**: Orchestrates all other modules
+  - **Unified Decision Triggering**: Single method handles all decision triggers
 
 #### 4. **Movement System** (`static/js/systems/movement-system.js`)
 - **Purpose**: Handles movement animations and physics
@@ -142,8 +144,10 @@ static/js/
 #### 5. **Sensory System** (`static/js/systems/sensory-system.js`)
 - **Purpose**: Handles sensory data collection and processing
 - **Key Features**:
-  - **Nearby Detection**: Find agents within observation radius
-  - **Object Visibility**: Detect world objects in range
+  - **Change Detection**: Tracks changes in nearby agents and objects
+  - **Event Triggers**: Automatically triggers decisions when interesting things appear/disappear
+  - **Nearby Detection**: Find agents within observation radius (1 unit)
+  - **Object Visibility**: Detect world objects (coins, landmarks) in range
   - **Sensory Data**: Compile comprehensive environmental data
   - **World Objects**: Manage interactive world elements
 
@@ -191,12 +195,32 @@ static/js/
 
 ## 🤖 Agent Behavior System
 
-### Decision Making Process
+### Event-Driven Decision Making
+
+The simulation now uses an **event-driven decision system** instead of time-based intervals, making agents much more responsive and natural:
+
+#### **Decision Triggers**
+1. **Action Completion Events**:
+   - When agents finish moving to a target
+   - When agents complete speaking (after 3 seconds)
+   - When agents finish observing their environment
+   - When agents collect coins
+
+2. **Interesting Observation Events**:
+   - When agents see new agents enter their observation radius
+   - When agents see new world objects (coins, landmarks) enter their range
+   - When agents lose sight of previously visible agents or objects
+
+3. **Initialization Events**:
+   - When simulation starts, all agents immediately make their first decision
+   - No more waiting for the first timer tick
+
+#### **Decision Making Process**
 
 1. **Observation Phase**:
-   - Agents scan for other agents within `observation_radius` (5 units)
-   - Detect world objects (like the purple sphere)
-   - Listen for communications within `hearing_radius` (3 units)
+   - Agents scan for other agents within `observation_radius` (1 unit)
+   - Detect world objects (coins, landmarks) within visibility range
+   - Track changes in their environment in real-time
 
 2. **Memory Integration**:
    - Recent memories influence decisions
@@ -205,9 +229,14 @@ static/js/
 
 3. **Decision Generation**:
    - **Move**: Travel to interesting locations or other agents
-   - **Speak**: Communicate when near other agents
+   - **Speak**: Communicate when near other agents (50% chance when close)
    - **Observe**: Analyze environment when idle
-   - **Idle**: Wait and think
+   - **Idle**: Wait and think (reduced to 5% chance overall)
+
+4. **Anti-Stuck Mechanisms**:
+   - Agents near interesting things are more likely to interact (80% chance to move when near other agents)
+   - Periodic checks every 500ms for idle agents near interesting things
+   - Fallback system forces decisions if agents are idle for more than 5 seconds
 
 ### Personality-Based Behavior
 
@@ -232,6 +261,7 @@ static/js/
 
 ### World Objects
 - **Purple Sphere**: Landmark at (5, 0.5, 3) that agents can investigate
+- **Collectible Coins**: 10 golden coins scattered around the world for agents to collect
 - **Ground Plane**: 10x10 unit gray surface
 - **Lighting**: Hemispheric + directional lighting for visibility
 
@@ -318,10 +348,13 @@ simulation/
 app.js → world-simulator.js → agent-manager.js → scene.js
 ```
 
-#### 2. **Simulation Flow**
+#### 2. **Event-Driven Simulation Flow**
 ```
-world-simulator.js → sensory-system.js → brain-service.js → backend
-world-simulator.js → movement-system.js → agent-manager.js → scene.js
+Event Triggers:
+├── Action Completion → world-simulator.js → brain-service.js → backend
+├── Observation Changes → sensory-system.js → world-simulator.js → brain-service.js → backend
+├── Movement Execution → movement-system.js → agent-manager.js → scene.js
+└── Periodic Checks → world-simulator.js → checkIdleAgents() → brain-service.js → backend
 ```
 
 #### 3. **User Interaction Flow**
@@ -343,8 +376,10 @@ user click → agent-manager.js → chat.js → brain-service.js → backend
 
 ### Real-time Interaction
 - **50ms Update Loop**: Smooth agent movement and state updates
-- **2s AI Decisions**: Thoughtful agent reasoning without overwhelming
+- **Event-Driven Decisions**: Agents respond immediately to interesting events
+- **500ms Observation Checks**: Periodic monitoring for environmental changes
 - **3s Speech Duration**: Realistic communication timing
+- **0.1s Decision Interval**: Very responsive decision-making (down from 1.0s)
 
 ### Memory System
 - **Short-term Memory**: Recent observations and decisions
@@ -382,6 +417,35 @@ user click → agent-manager.js → chat.js → brain-service.js → backend
 - **Memory Management**: Automatic cleanup of disposed objects
 - **Network Optimization**: Minimal API calls, efficient state updates
 - **Modular Loading**: Only load necessary modules for better performance
+- **Event-Driven Architecture**: Reduces unnecessary processing and improves responsiveness
+
+## 🧹 Codebase Improvements
+
+### Recent Optimizations
+The codebase has been significantly cleaned up and optimized:
+
+#### **Event-Driven System**
+- **Replaced timer-based decisions** (every 2 seconds) with event-driven triggers
+- **Immediate response** to interesting observations and action completions
+- **Reduced decision interval** from 1.0s to 0.1s for faster responsiveness
+
+#### **Code Consolidation**
+- **Merged redundant methods**: Combined similar decision tracking functions
+- **Unified decision triggering**: Single method handles all decision triggers
+- **Eliminated duplicate code**: Removed ~100 lines of redundant code
+- **Centralized helper methods**: Reduced repetitive `window.app.worldSimulator` checks
+
+#### **Anti-Stuck Mechanisms**
+- **Initial decision triggers**: Agents start immediately when simulation begins
+- **Idle agent monitoring**: Periodic checks for agents stuck near interesting things
+- **Fallback system**: Forces decisions if agents are idle for more than 5 seconds
+- **Improved decision logic**: Reduced idle chance from 10% to 5% overall
+
+#### **Better Architecture**
+- **Clear separation of concerns**: Each system handles its own responsibilities
+- **Simplified method signatures**: Reduced parameter passing and complexity
+- **Improved maintainability**: Single methods handle similar functionality
+- **Enhanced debugging**: Centralized decision triggering for easier tracing
 
 ## 🔮 Future Enhancements
 

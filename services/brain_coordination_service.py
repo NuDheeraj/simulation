@@ -1,6 +1,7 @@
 """
 Brain coordination service for managing AI agent brains and their interactions
 """
+import time
 from typing import Dict, List, Any, Optional
 from models.agent import Agent
 from utils.logger import setup_logger
@@ -87,7 +88,7 @@ class BrainCoordinationService:
     
     def report_action_completion(self, agent_id: str, action_type: str, final_position: Dict[str, float] = None) -> None:
         """Report that an agent has completed an action (called by frontend)"""
-        agent = self.get_agent(agent_id)
+        agent = self.get_agent_brain(agent_id)
         if not agent:
             return
         
@@ -111,14 +112,14 @@ class BrainCoordinationService:
     
     def clear_pending_decision(self, agent_id: str) -> None:
         """Clear a pending decision for an agent (called by frontend)"""
-        agent = self.get_agent(agent_id)
+        agent = self.get_agent_brain(agent_id)
         if agent:
             agent.pending_decision = None
             logger.info(f"Cleared pending decision for agent {agent_id}")
     
     def force_agent_decision(self, agent_id: str) -> Optional[Dict[str, Any]]:
         """Force an agent to make a decision immediately"""
-        agent = self.get_agent(agent_id)
+        agent = self.get_agent_brain(agent_id)
         if not agent:
             return None
         

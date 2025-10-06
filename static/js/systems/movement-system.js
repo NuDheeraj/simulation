@@ -5,6 +5,15 @@ class MovementSystem {
     constructor(agentManager) {
         this.agentManager = agentManager;
     }
+    
+    /**
+     * Helper method to trigger decisions
+     */
+    triggerDecision(agentId, type, details = {}) {
+        if (window.app && window.app.worldSimulator) {
+            window.app.worldSimulator.triggerDecision(agentId, type, details);
+        }
+    }
 
     /**
      * Execute movement action - World owns the movement
@@ -42,6 +51,13 @@ class MovementSystem {
             
             // Report completion to brain
             brainService.reportActionCompletion(agentId, 'move', {
+                final_position: { ...agent.position },
+                distance_traveled: 0
+            });
+            
+            // Trigger new decision after movement completion
+            this.triggerDecision(agentId, 'action_completion', {
+                actionType: 'move',
                 final_position: { ...agent.position },
                 distance_traveled: 0
             });
@@ -83,11 +99,18 @@ class MovementSystem {
                 
                 console.log(`Agent ${agentId} reached destination at (${agent.position.x}, ${agent.position.z})`);
                 
-                // Report completion to brain
-                brainService.reportActionCompletion(agentId, 'move', {
-                    final_position: { ...agent.position },
-                    distance_traveled: distance
-                });
+            // Report completion to brain
+            brainService.reportActionCompletion(agentId, 'move', {
+                final_position: { ...agent.position },
+                distance_traveled: distance
+            });
+            
+            // Trigger new decision after movement completion
+            this.triggerDecision(agentId, 'action_completion', {
+                actionType: 'move',
+                final_position: { ...agent.position },
+                distance_traveled: distance
+            });
             }
         };
 

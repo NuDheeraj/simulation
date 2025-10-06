@@ -5,6 +5,7 @@ class SensorySystem {
     constructor(agentManager) {
         this.agentManager = agentManager;
         this.worldObjects = new Map(); // Objects in the world
+        this.previousObservations = new Map(); // Track previous observations for each agent
     }
 
     /**
@@ -24,6 +25,107 @@ class SensorySystem {
         };
 
         return sensoryData;
+    }
+
+    /**
+     * Check for interesting observation changes and trigger decisions
+     */
+    checkForInterestingChanges(agentId) {
+        const agent = this.agentManager.getAgent(agentId);
+        if (!agent) return;
+
+        const currentObservations = {
+            nearbyAgents: this.getNearbyAgents(agentId),
+            worldObjects: this.getVisibleObjects(agentId)
+        };
+
+        const previousObs = this.previousObservations.get(agentId) || { nearbyAgents: [], worldObjects: [] };
+
+        // Check for new agents in range
+        const newAgents = currentObservations.nearbyAgents.filter(currentAgent => 
+            !previousObs.nearbyAgents.some(prevAgent => prevAgent.id === currentAgent.id)
+        );
+
+        // Check for new world objects in range
+        const newObjects = currentObservations.worldObjects.filter(currentObj => 
+            !previousObs.worldObjects.some(prevObj => prevObj.id === currentObj.id)
+        );
+
+        // Check for agents that left range
+        const agentsLeft = previousObs.nearbyAgents.filter(prevAgent => 
+            !currentObservations.nearbyAgents.some(currentAgent => currentAgent.id === prevAgent.id)
+        );
+
+        // Check for objects that left range
+        const objectsLeft = previousObs.worldObjects.filter(prevObj => 
+            !currentObservations.worldObjects.some(currentObj => currentObj.id === prevObj.id)
+        );
+
+        // Trigger decisions for interesting changes
+        if (newAgents.length > 0) {
+            console.log(`Agent ${agentId} sees new agents:`, newAgents.map(a => a.id));
+            this.triggerDecision(agentId, 'observation', {
+                observationType: 'new_agents',
+                agents: newAgents
+            });
+        }
+
+        if (newObjects.length > 0) {
+            console.log(`Agent ${agentId} sees new objects:`, newObjects.map(o => o.id));
+            this.triggerDecision(agentId, 'observation', {
+                observationType: 'new_objects',
+                objects: newObjects
+            });
+        }
+
+        if (agentsLeft.length > 0) {
+            console.log(`Agent ${agentId} lost sight of agents:`, agentsLeft.map(a => a.id));
+            this.triggerDecision(agentId, 'observation', {
+                observationType: 'agents_left',
+                agents: agentsLeft
+            });
+        }
+
+        if (objectsLeft.length > 0) {
+            console.log(`Agent ${agentId} lost sight of objects:`, objectsLeft.map(o => o.id));
+            this.triggerDecision(agentId, 'observation', {
+                observationType: 'objects_left',
+                objects: objectsLeft
+            });
+        }
+
+        // Update previous observations
+        this.previousObservations.set(agentId, currentObservations);
+    }
+
+    /**
+     * Check for interesting changes for all agents
+     */
+    checkForInterestingChangesAll() {
+        for (const [agentId, agent] of this.agentManager.getAllAgents()) {
+            this.checkForInterestingChanges(agentId);
+        }
+    }
+    
+    /**
+     * Helper method to trigger decisions
+     */
+    triggerDecision(agentId, type, details = {}) {
+        if (window.app && window.app.worldSimulator) {
+            window.app.worldSimulator.triggerDecision(agentId, type, details);
+        }
+    }
+
+    /**
+     * Initialize observations for an agent (call when agent is created)
+     */
+    initializeObservations(agentId) {
+        const currentObservations = {
+            nearbyAgents: this.getNearbyAgents(agentId),
+            worldObjects: this.getVisibleObjects(agentId)
+        };
+        this.previousObservations.set(agentId, currentObservations);
+        console.log(`Initialized observations for agent ${agentId}:`, currentObservations);
     }
 
     /**
