@@ -106,6 +106,7 @@ class MovementSystem {
             });
             
             // Trigger new decision after movement completion
+            console.log(`🚀 Movement completed for ${agentId}, triggering new decision...`);
             this.triggerDecision(agentId, 'action_completion', {
                 actionType: 'move',
                 final_position: { ...agent.position },
@@ -198,33 +199,6 @@ class MovementSystem {
         }
     }
 
-    /**
-     * Update agent positions in the 3D scene (legacy method)
-     */
-    updateAgentPositions(agentStates) {
-        for (const [agentId, agentState] of Object.entries(agentStates)) {
-            const sphere = this.agentManager.agentSpheres.get(agentId);
-            if (sphere) {
-                // Handle movement animation for agents with move actions
-                if (agentState.current_action === "move" && agentState.goal_target) {
-                    this.animateAgentMovement(agentId, agentState.goal_target);
-                } else {
-                    // Direct mapping: simulation X,Y,Z -> 3D X,Y,Z (Y is height, X-Z is movement plane)
-                    sphere.position.x = agentState.position.x;
-                    sphere.position.y = agentState.position.y;
-                    sphere.position.z = agentState.position.z;
-                    
-                    // Update visibility sphere position
-                    const visibilitySphere = this.agentManager.visibilitySpheres?.get(agentId);
-                    if (visibilitySphere) {
-                        visibilitySphere.position.x = agentState.position.x;
-                        visibilitySphere.position.y = agentState.position.y;
-                        visibilitySphere.position.z = agentState.position.z;
-                    }
-                }
-            }
-        }
-    }
 }
 
 // Export for use in other modules

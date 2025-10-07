@@ -77,3 +77,22 @@ class AgentService:
     def get_brain_coordination_service(self) -> BrainCoordinationService:
         """Get the brain coordination service instance"""
         return self.brain_coordination_service
+    
+    def reset_simulation(self) -> None:
+        """Reset the simulation to initial state"""
+        self.brain_coordination_service.reset_simulation()
+        logger.info("Simulation reset")
+    
+    def get_simulation_state(self) -> Dict[str, Any]:
+        """Get current simulation state"""
+        return {
+            "simulation_running": self.brain_coordination_service.brains_active,
+            "agents": {aid: {
+                "id": agent.id,
+                "name": agent.name,
+                "position": agent.position,
+                "current_action": agent.current_action,
+                "current_utterance": agent.current_utterance
+            } for aid, agent in self.agents.items()},
+            "world_objects": self.brain_coordination_service.get_world_objects()
+        }

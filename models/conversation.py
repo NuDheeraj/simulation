@@ -5,17 +5,17 @@ from typing import Dict, Any, List
 import time
 
 class Conversation:
-    """Represents a conversation between user and agent"""
+    """Represents agent-to-agent conversations"""
     
     def __init__(self, agent_id: str):
         self.agent_id = agent_id
         self.messages: List[Dict[str, Any]] = []
     
-    def add_message(self, user_message: str, agent_response: str) -> None:
-        """Add a message exchange to the conversation"""
+    def add_message(self, speaker: str, message: str) -> None:
+        """Add an agent-to-agent message to the conversation"""
         self.messages.append({
-            "user": user_message,
-            "agent": agent_response,
+            "speaker": speaker,
+            "message": message,
             "timestamp": time.time()
         })
     

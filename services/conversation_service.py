@@ -6,7 +6,7 @@ from models.conversation import Conversation
 from models.agent import Agent
 
 class ConversationService:
-    """Service for managing conversations between users and agents"""
+    """Service for managing agent-to-agent conversations"""
     
     def __init__(self):
         self.conversations: Dict[str, Conversation] = {}
@@ -17,10 +17,10 @@ class ConversationService:
             self.conversations[agent_id] = Conversation(agent_id)
         return self.conversations[agent_id]
     
-    def add_message(self, agent_id: str, user_message: str, agent_response: str) -> None:
-        """Add a message to the conversation"""
+    def add_agent_message(self, agent_id: str, speaker: str, message: str) -> None:
+        """Add an agent-to-agent message to the conversation"""
         conversation = self.get_or_create_conversation(agent_id)
-        conversation.add_message(user_message, agent_response)
+        conversation.add_message(speaker, message)
     
     def get_conversation_history(self, agent_id: str) -> List[Dict[str, Any]]:
         """Get conversation history for an agent"""

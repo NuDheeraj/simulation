@@ -7,8 +7,7 @@ class ChatManager {
         this.selectedAgent = null;
         this.chatPanel = null;
         this.chatHistory = null;
-        this.chatInput = null;
-        this.sendButton = null;
+        this.refreshButton = null;
         this.closeButton = null;
         this.agentInfo = null;
     }
@@ -19,12 +18,11 @@ class ChatManager {
     initialize() {
         this.chatPanel = document.getElementById('chatPanel');
         this.chatHistory = document.getElementById('chatHistory');
-        this.chatInput = document.getElementById('chatInput');
-        this.sendButton = document.getElementById('sendButton');
+        this.refreshButton = document.getElementById('refreshChat');
         this.closeButton = document.getElementById('closeChat');
         this.agentInfo = document.getElementById('agentInfo');
 
-        if (!this.chatPanel || !this.chatHistory || !this.chatInput || !this.sendButton || !this.closeButton || !this.agentInfo) {
+        if (!this.chatPanel || !this.chatHistory || !this.refreshButton || !this.closeButton || !this.agentInfo) {
             console.error('Chat UI elements not found');
             return false;
         }
@@ -37,12 +35,7 @@ class ChatManager {
      * Setup event listeners for chat functionality
      */
     setupEventListeners() {
-        this.sendButton.addEventListener('click', () => this.sendMessage());
-        this.chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.sendMessage();
-            }
-        });
+        this.refreshButton.addEventListener('click', () => this.refreshConversation());
         this.closeButton.addEventListener('click', () => this.closeChat());
     }
 
@@ -51,7 +44,7 @@ class ChatManager {
      */
     selectAgent(agentId) {
         this.selectedAgent = agentId;
-        const agent = this.worldSimulator.agents.get(agentId);
+        const agent = this.worldSimulator.agentManager.getAgent(agentId);
         
         if (!agent) {
             console.error('Agent not found:', agentId);
@@ -76,89 +69,61 @@ class ChatManager {
         try {
             const response = await fetch(`/api/agents/${agentId}/conversation`);
             const data = await response.json();
-            this.displayConversation(data.conversation);
+            
+            if (data.conversation) {
+                this.displayConversation(data.conversation);
+            } else {
+                // Handle case where conversation data is not available
+                this.displayConversation([]);
+            }
         } catch (error) {
             console.error('Error loading conversation:', error);
+            // Show empty conversation on error
+            this.displayConversation([]);
         }
     }
 
     /**
-     * Display conversation history
+     * Display agent-to-agent conversation history
      */
     displayConversation(conversation) {
         this.chatHistory.innerHTML = '';
         
+        if (!conversation || conversation.length === 0) {
+            const noMessagesDiv = document.createElement('div');
+            noMessagesDiv.className = 'message no-messages';
+            noMessagesDiv.textContent = 'No conversations yet. Start the simulation to see agents interact!';
+            this.chatHistory.appendChild(noMessagesDiv);
+            return;
+        }
+        
         conversation.forEach(msg => {
-            const userDiv = document.createElement('div');
-            userDiv.className = 'message user-message';
-            userDiv.textContent = `You: ${msg.user}`;
-            this.chatHistory.appendChild(userDiv);
-            
-            const agentDiv = document.createElement('div');
-            agentDiv.className = 'message agent-message';
-            agentDiv.textContent = `${this.worldSimulator.agents.get(this.selectedAgent).name}: ${msg.agent}`;
-            this.chatHistory.appendChild(agentDiv);
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message agent-message';
+            messageDiv.textContent = `${msg.speaker}: ${msg.message}`;
+            this.chatHistory.appendChild(messageDiv);
         });
     }
 
     /**
-     * Send a message to the selected agent
+     * Refresh conversation history (read-only view)
      */
-    async sendMessage() {
+    async refreshConversation() {
         if (!this.selectedAgent) return;
         
-        const message = this.chatInput.value.trim();
-        if (!message) return;
-        
-        // Add user message to chat
-        this.addUserMessage(message);
-        this.chatInput.value = '';
-        
         try {
-            const response = await fetch(`/api/agents/${this.selectedAgent}/chat`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message: message })
-            });
-            
+            const response = await fetch(`/api/agents/${this.selectedAgent}/conversation`);
             const data = await response.json();
             
-            // Add agent response to chat
-            this.addAgentMessage(data.agent_name, data.response);
-            
-            // Update floating chat bubble
-            this.worldSimulator.updateFloatingChatMessage(this.selectedAgent, data.response);
-            
-            // Scroll to bottom
-            this.chatHistory.scrollTop = this.chatHistory.scrollHeight;
+            if (data.conversation) {
+                this.displayConversation(data.conversation);
+            }
             
         } catch (error) {
-            console.error('Error sending message:', error);
-            alert('Error sending message. Please try again.');
+            console.error('Error refreshing conversation:', error);
         }
     }
 
-    /**
-     * Add user message to chat history
-     */
-    addUserMessage(message) {
-        const userDiv = document.createElement('div');
-        userDiv.className = 'message user-message';
-        userDiv.textContent = `You: ${message}`;
-        this.chatHistory.appendChild(userDiv);
-    }
-
-    /**
-     * Add agent message to chat history
-     */
-    addAgentMessage(agentName, message) {
-        const agentDiv = document.createElement('div');
-        agentDiv.className = 'message agent-message';
-        agentDiv.textContent = `${agentName}: ${message}`;
-        this.chatHistory.appendChild(agentDiv);
-    }
 
     /**
      * Close the chat panel

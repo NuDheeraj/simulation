@@ -92,6 +92,56 @@ body {
     background: rgba(40, 167, 69, 0.3);
 }
 
+.no-messages {
+    background: rgba(255, 193, 7, 0.3);
+    text-align: center;
+    font-style: italic;
+    color: #ffc107;
+}
+
+.chat-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.chat-btn {
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    min-width: 80px;
+}
+
+.chat-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.refresh-btn {
+    background: #28a745;
+    color: white;
+}
+
+.refresh-btn:hover {
+    background: #218838;
+}
+
+.close-btn {
+    background: #dc3545;
+    color: white;
+}
+
+.close-btn:hover {
+    background: #c82333;
+}
+
 #agentInfo {
     font-size: 12px;
     color: #ccc;

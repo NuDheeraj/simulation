@@ -11,7 +11,6 @@ class WorldSimulator {
         this.chatBubbleManager = new ChatBubbleManager(sceneManager);
         this.simulationRunning = false;
         this.observationInterval = null;
-        this.agentLastDecisionTime = new Map(); // Track when agents last made decisions
     }
 
     /**
@@ -226,14 +225,11 @@ class WorldSimulator {
         // No longer using intervals - decisions are triggered by events
         console.log('Event-driven decision system activated');
         
-        // Start a periodic check for interesting observations (much less frequent than before)
+        // Start a periodic check for interesting observations
         this.observationInterval = setInterval(() => {
             if (this.simulationRunning) {
                 this.checkForInterestingObservations();
                 this.checkCoinCollection();
-                
-                // Check all idle agents and trigger decisions if needed
-                this.checkIdleAgents();
             }
         }, 500); // Check every 500ms for observation changes
     }
@@ -245,10 +241,12 @@ class WorldSimulator {
         this.sensorySystem.checkForInterestingChangesAll();
     }
     
+    
     /**
      * Helper method to trigger decisions from other systems
      */
     triggerDecision(agentId, type, details = {}) {
+        console.log(`🔔 triggerDecision called for ${agentId} with type: ${type}`, details);
         if (type === 'observation') {
             this.triggerAgentDecision(agentId, `observation: ${details.observationType}`, details);
         } else if (type === 'action_completion') {
@@ -271,8 +269,6 @@ class WorldSimulator {
                 console.log(`Triggering initial decision for agent ${agentId}`);
                 await this.requestDecisionFromBrain(agentId);
                 
-                // Track decision time
-                this.agentLastDecisionTime.set(agentId, Date.now());
                 
                 // Small delay between agents to avoid overwhelming the system
                 if (i < agents.length - 1) {
@@ -282,49 +278,44 @@ class WorldSimulator {
         }
     }
     
-    /**
-     * Check all idle agents and trigger decisions if needed
-     */
-    async checkIdleAgents() {
-        const currentTime = Date.now();
-        const stuckThreshold = 5000; // 5 seconds
-        
-        for (const [agentId, agent] of this.agentManager.getAllAgents()) {
-            if (agent.currentAction !== 'idle') continue;
-            
-            const lastDecisionTime = this.agentLastDecisionTime.get(agentId) || 0;
-            const timeSinceLastDecision = currentTime - lastDecisionTime;
-            
-            // Only check for stuck agents (sensory system handles interesting things)
-            if (timeSinceLastDecision > stuckThreshold) {
-                console.log(`Agent ${agentId} has been idle for ${timeSinceLastDecision}ms, forcing decision`);
-                
-                // Small delay to avoid immediate re-triggering
-                setTimeout(async () => {
-                    if (agent.currentAction === 'idle') {
-                        await this.requestDecisionFromBrain(agentId);
-                        this.agentLastDecisionTime.set(agentId, Date.now());
-                    }
-                }, 200); // 200ms delay
-            }
-        }
-    }
     
     /**
      * Trigger a decision for an agent
      */
     async triggerAgentDecision(agentId, reason, details = {}) {
-        if (!this.simulationRunning) return;
+        console.log(`🎯 triggerAgentDecision called for ${agentId} with reason: ${reason}`, details);
+        
+        if (!this.simulationRunning) {
+            console.log(`❌ Simulation not running, skipping decision for ${agentId}`);
+            return;
+        }
         
         const agent = this.agentManager.getAgent(agentId);
-        if (!agent) return;
+        if (!agent) {
+            console.log(`❌ Agent ${agentId} not found`);
+            return;
+        }
+        
+        console.log(`🔍 Agent ${agentId} state:`, {
+            currentAction: agent.currentAction,
+            isMakingDecision: agent.isMakingDecision,
+            position: agent.position
+        });
         
         // For observation triggers, only trigger if agent is idle
-        if (reason.includes('observation') && agent.currentAction !== 'idle') return;
+        if (reason.includes('observation') && agent.currentAction !== 'idle') {
+            console.log(`⏭️ Skipping observation trigger for ${agentId} - not idle`);
+            return;
+        }
         
-        console.log(`Agent ${agentId} triggered decision due to ${reason}:`, details);
+        // Don't trigger if agent is already making a decision
+        if (agent.isMakingDecision) {
+            console.log(`⏭️ Agent ${agentId} is already making a decision, skipping trigger due to ${reason}`);
+            return;
+        }
+        
+        console.log(`✅ Agent ${agentId} triggered decision due to ${reason}:`, details);
         await this.requestDecisionFromBrain(agentId);
-        this.agentLastDecisionTime.set(agentId, Date.now());
     }
     
     /**
@@ -371,9 +362,20 @@ class WorldSimulator {
         const agent = this.agentManager.getAgent(agentId);
         if (!agent) return;
 
+        // Check if agent is already making a decision
+        if (agent.isMakingDecision) {
+            console.log(`Agent ${agentId} is already making a decision, skipping...`);
+            return;
+        }
+
+        // Mark agent as making decision
+        agent.isMakingDecision = true;
+        agent.lastDecisionTime = Date.now();
+
         try {
             // Send sensory data to brain
             const sensoryData = this.sensorySystem.getSensoryData(agentId);
+            console.log(`Requesting decision from brain ${agentId} with sensory data:`, sensoryData);
             const decision = await this.brainService.requestDecision(agentId, sensoryData);
             
             if (decision) {
@@ -382,6 +384,8 @@ class WorldSimulator {
             }
         } catch (error) {
             console.error(`Error requesting decision from brain ${agentId}:`, error);
+            // Clear the decision flag on error
+            agent.isMakingDecision = false;
         }
     }
 
@@ -393,6 +397,9 @@ class WorldSimulator {
         
         const agent = this.agentManager.getAgent(agentId);
         if (!agent) return;
+
+        // Clear the decision flag since we're now executing the decision
+        agent.isMakingDecision = false;
 
         // Update agent state
         this.agentManager.updateAgentState(agentId, {
@@ -407,12 +414,40 @@ class WorldSimulator {
         } else if (decision.action === 'observe') {
             await this.executeObservation(agentId);
         } else if (decision.action === 'idle') {
-            // Agent chooses to do nothing
-            this.agentManager.updateAgentState(agentId, {
-                currentAction: 'idle',
-                goalTarget: null
-            });
+            // Agent chooses to rest/think/observe for 5 seconds
+            await this.executeIdle(agentId);
         }
+    }
+
+    /**
+     * Execute idle action (rest/think/observe for 5 seconds)
+     */
+    async executeIdle(agentId) {
+        const agent = this.agentManager.getAgent(agentId);
+        if (!agent) return;
+
+        console.log(`Agent ${agentId} is resting/thinking/observing for 5 seconds...`);
+        
+        // Update agent state
+        this.agentManager.updateAgentState(agentId, {
+            currentAction: 'idle',
+            goalTarget: null
+        });
+
+        // Wait for 5 seconds
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        // Report completion to brain
+        this.brainService.reportActionCompletion(agentId, 'idle', {
+            duration: 5000,
+            action: 'rest_think_observe'
+        });
+
+        // Trigger new decision after idle completes
+        this.triggerDecision(agentId, 'action_completion', {
+            actionType: 'idle',
+            duration: 5000
+        });
     }
 
     /**

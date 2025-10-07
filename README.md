@@ -10,6 +10,7 @@ This project simulates intelligent agents (Alice and Bob) in a 3D world where th
 - **Communicate** with each other and users
 - **Make decisions** based on their personality and observations
 - **Remember** past interactions and experiences
+- **Collect coins** and interact with world objects
 
 ## 🏗️ Architecture
 
@@ -17,10 +18,11 @@ This project simulates intelligent agents (Alice and Bob) in a 3D world where th
 - **Framework**: Flask with CORS support
 - **Port**: 5001
 - **Architecture**: Service-oriented with clear separation of concerns
+- **LLM Integration**: Mistral Devstral-Small-2507 model for agent decisions
 
 ### Frontend (Babylon.js)
 - **3D Engine**: Babylon.js for 3D rendering
-- **Architecture**: Modular JavaScript classes
+- **Architecture**: Modular JavaScript classes with event-driven system
 - **UI**: Interactive 3D scene with chat interface
 
 ## 🔧 Backend Components
@@ -31,8 +33,7 @@ This project simulates intelligent agents (Alice and Bob) in a 3D world where th
 - **Purpose**: Manages AI agents and their lifecycle
 - **Key Methods**:
   - `get_all_agents()`: Returns all configured agents
-  - `start_simulation()`: Starts the AI decision loop
-  - `force_agent_decision()`: Forces immediate agent decision
+  - `get_brain_coordination_service()`: Access to brain coordination
   - `reset_simulation()`: Resets all agents to initial state
 
 #### 2. **Brain Coordination Service** (`services/brain_coordination_service.py`)
@@ -42,27 +43,24 @@ This project simulates intelligent agents (Alice and Bob) in a 3D world where th
   - **Memory Coordination**: Tracks agent memories and learning
   - **World Reference**: Provides world objects that brains can reference
 
-#### 3. **Agent Model** (`models/agent.py`)
+#### 3. **LLM Service** (`services/llm_service.py`)
+- **Purpose**: Handles AI decision-making using LLM models
+- **Key Features**:
+  - **Mistral Integration**: Uses Devstral-Small-2507 model
+  - **Structured Prompts**: Provides context about world, time, and actions
+  - **Fallback System**: Mock responses when LLM unavailable
+  - **Simulation Time**: Uses frontend time for consistent decision-making
+
+#### 4. **Agent Model** (`models/agent.py`)
 - **Purpose**: Represents individual AI agents with personality and behavior
 - **Key Properties**:
   - `position`: 3D coordinates (X-Z plane movement, Y is height)
   - `personality`: Creative/artistic vs Logical/analytical
   - `memory`: Recent experiences and observations
   - `current_action`: Current behavior (idle, move, say)
-  - `observations`: Real-time environmental awareness
-
-### Backend States
-
-#### Agent States
-1. **Idle**: Agent is waiting for next decision
-2. **Moving**: Agent is traveling to a target position
-3. **Speaking**: Agent is communicating (3-second duration)
-4. **Observing**: Agent is analyzing the environment
-
-#### Brain States
-1. **Inactive**: Brains not coordinating
-2. **Active**: Brains coordinating and managing agent interactions
-3. **Learning**: Brains processing memories and experiences
+- **Key Methods**:
+  - `make_decision_from_sensory_data()`: Main decision-making method
+  - `_generate_observations_from_sensory_data()`: Process frontend observations
 
 ### API Endpoints
 
@@ -73,14 +71,9 @@ This project simulates intelligent agents (Alice and Bob) in a 3D world where th
 - `POST /api/agents/{id}/reset` - Reset agent conversation
 
 #### Brain Coordination
-- `POST /api/agents/brain/decide` - Request decision from agent brain
-- `POST /api/agents/brain/action-complete` - Report action completion to brain
+- `POST /api/agents/{id}/brain/decide` - Request decision from agent brain
+- `POST /api/agents/{id}/brain/action-complete` - Report action completion to brain
 - `GET /api/agents/brain/state` - Get brain coordination state
-
-#### Agent Actions
-- `POST /api/agents/{id}/force-decision` - Force immediate decision
-- `POST /api/agents/{id}/report-movement` - Report movement completion
-- `POST /api/agents/{id}/clear-pending-decision` - Clear pending decision
 
 ## 🎮 Frontend Components
 
@@ -128,10 +121,9 @@ static/js/
 - **Key Features**:
   - **Event-Driven Simulation**: Triggers decisions based on events, not timers
   - **Decision Coordination**: Request decisions from agent brains
-  - **Action Execution**: Coordinate movement, speech, and observation
-  - **Anti-Stuck Monitoring**: Periodic checks for idle agents near interesting things
+  - **Action Execution**: Coordinate movement, speech, observation, and idle actions
+  - **Idle Action**: 5-second rest/think/observe periods
   - **System Integration**: Orchestrates all other modules
-  - **Unified Decision Triggering**: Single method handles all decision triggers
 
 #### 4. **Movement System** (`static/js/systems/movement-system.js`)
 - **Purpose**: Handles movement animations and physics
@@ -149,7 +141,7 @@ static/js/
   - **Nearby Detection**: Find agents within observation radius (1 unit)
   - **Object Visibility**: Detect world objects (coins, landmarks) in range
   - **Sensory Data**: Compile comprehensive environmental data
-  - **World Objects**: Manage interactive world elements
+  - **Simulation Time**: Provides frontend time to backend for consistent decisions
 
 #### 6. **Brain Service** (`static/js/services/brain-service.js`)
 - **Purpose**: Communication with AI brains on the backend
@@ -159,51 +151,18 @@ static/js/
   - **API Communication**: Handle all backend interactions
   - **Error Handling**: Robust communication with fallbacks
 
-#### 7. **Chat Manager** (`static/js/chat.js`)
-- **Purpose**: Manages user-agent communication
-- **Features**:
-  - Interactive chat panel
-  - Conversation history
-  - Real-time message exchange
-  - Agent personality display
-
-#### 8. **Main App** (`static/js/app.js`)
-- **Purpose**: Orchestrates all components
-- **Features**:
-  - Application initialization
-  - Simulation controls
-  - Error handling
-  - Event coordination
-
-### Frontend States
-
-#### Application States
-1. **Initializing**: Loading 3D scene and agents
-2. **Ready**: All components loaded, ready for interaction
-3. **Error**: Initialization failed, showing error overlay
-
-#### Simulation States
-1. **Stopped**: No simulation running, agents idle
-2. **Running**: Simulation active, agents making decisions
-3. **Updating**: Processing agent state changes (50ms intervals)
-
-#### Agent Visual States
-1. **Idle**: Agent capsule stationary
-2. **Moving**: Agent capsule animating to target
-3. **Speaking**: Chat bubble visible with message
-4. **Selected**: Agent highlighted for chat interaction
-
 ## 🤖 Agent Behavior System
 
 ### Event-Driven Decision Making
 
-The simulation now uses an **event-driven decision system** instead of time-based intervals, making agents much more responsive and natural:
+The simulation uses an **event-driven decision system** for natural, responsive agent behavior:
 
 #### **Decision Triggers**
 1. **Action Completion Events**:
    - When agents finish moving to a target
-   - When agents complete speaking (after 3 seconds)
+   - When agents complete speaking (after 2 seconds)
    - When agents finish observing their environment
+   - When agents complete idle periods (after 5 seconds)
    - When agents collect coins
 
 2. **Interesting Observation Events**:
@@ -213,7 +172,12 @@ The simulation now uses an **event-driven decision system** instead of time-base
 
 3. **Initialization Events**:
    - When simulation starts, all agents immediately make their first decision
-   - No more waiting for the first timer tick
+
+#### **Action Types and Durations**
+- **Move**: 1-3 seconds (depends on distance)
+- **Say**: 2 seconds
+- **Idle**: 5 seconds (rest/think/observe)
+- **Observe**: Instant (triggers new decision)
 
 #### **Decision Making Process**
 
@@ -227,16 +191,10 @@ The simulation now uses an **event-driven decision system** instead of time-base
    - Past interactions shape behavior
    - Maximum 10 memory items per agent
 
-3. **Decision Generation**:
-   - **Move**: Travel to interesting locations or other agents
-   - **Speak**: Communicate when near other agents (50% chance when close)
-   - **Observe**: Analyze environment when idle
-   - **Idle**: Wait and think (reduced to 5% chance overall)
-
-4. **Anti-Stuck Mechanisms**:
-   - Agents near interesting things are more likely to interact (80% chance to move when near other agents)
-   - Periodic checks every 500ms for idle agents near interesting things
-   - Fallback system forces decisions if agents are idle for more than 5 seconds
+3. **LLM Decision Generation**:
+   - **Structured Prompts**: Include position, observations, memories, world objects, and time
+   - **Action Context**: Agents know how long each action takes
+   - **JSON Output**: Structured decisions with action, target, utterance, and memory updates
 
 ### Personality-Based Behavior
 
@@ -293,6 +251,7 @@ simulation/
 ├── services/                 # Backend services
 │   ├── agent_service.py     # Agent management service
 │   ├── brain_coordination_service.py  # AI brain coordination
+│   ├── llm_service.py       # LLM integration service
 │   └── conversation_service.py        # Chat management
 ├── routes/                   # API endpoints
 │   ├── agent_routes.py      # Agent-related endpoints
@@ -325,13 +284,13 @@ simulation/
 - Modern web browser with WebGL support
 
 ### Installation
-   ```bash
+```bash
 # Install Python dependencies
-   pip install -r requirements.txt
+pip install -r requirements.txt
 
 # Run the Flask server
-   python app.py
-   ```
+python app.py
+```
 
 ### Access
 - Open browser to `http://localhost:5001`
@@ -341,25 +300,13 @@ simulation/
 
 ## 🔄 Data Flow
 
-### Modular Data Flow
-
-#### 1. **Initialization Flow**
-```
-app.js → world-simulator.js → agent-manager.js → scene.js
-```
-
-#### 2. **Event-Driven Simulation Flow**
+### Event-Driven Simulation Flow
 ```
 Event Triggers:
 ├── Action Completion → world-simulator.js → brain-service.js → backend
 ├── Observation Changes → sensory-system.js → world-simulator.js → brain-service.js → backend
 ├── Movement Execution → movement-system.js → agent-manager.js → scene.js
-└── Periodic Checks → world-simulator.js → checkIdleAgents() → brain-service.js → backend
-```
-
-#### 3. **User Interaction Flow**
-```
-user click → agent-manager.js → chat.js → brain-service.js → backend
+└── User Interaction → agent-manager.js → chat.js → brain-service.js → backend
 ```
 
 ### Backend → Frontend
@@ -375,28 +322,23 @@ user click → agent-manager.js → chat.js → brain-service.js → backend
 ## 🎯 Key Features
 
 ### Real-time Interaction
-- **50ms Update Loop**: Smooth agent movement and state updates
 - **Event-Driven Decisions**: Agents respond immediately to interesting events
-- **500ms Observation Checks**: Periodic monitoring for environmental changes
-- **3s Speech Duration**: Realistic communication timing
-- **0.1s Decision Interval**: Very responsive decision-making (down from 1.0s)
-
-### Memory System
-- **Short-term Memory**: Recent observations and decisions
-- **Personality Persistence**: Consistent behavior patterns
-- **Learning**: Agents remember past interactions
+- **Action-Based Timing**: Realistic durations for each action type
+- **Continuous Flow**: Agents never get stuck, always making decisions
+- **Memory System**: Agents remember past interactions and experiences
 
 ### Visual Feedback
 - **Floating Chat Bubbles**: Real-time speech visualization
 - **Smooth Animations**: Fluid movement between positions
 - **Interactive UI**: Click-to-chat with any agent
+- **3D World**: Immersive environment with collectible objects
 
 ## 🛠️ Technical Details
 
 ### Backend Technologies
 - **Flask**: Web framework
 - **Flask-CORS**: Cross-origin resource sharing
-- **Threading**: Background AI decision processing
+- **Mistral LLM**: AI decision-making
 - **JSON**: API communication
 
 ### Frontend Technologies
@@ -405,56 +347,71 @@ user click → agent-manager.js → chat.js → brain-service.js → backend
 - **CSS3**: Styling and animations
 - **WebGL**: Hardware-accelerated rendering
 
-### Modular Architecture Benefits
-- **Maintainability**: Single responsibility principle, easy to debug
-- **Scalability**: Easy to add new features without affecting existing code
-- **Reusability**: Modules can be used independently in other projects
-- **Team Development**: Multiple developers can work on different modules
-- **Testing**: Each module can be unit tested independently
-
 ### Performance Considerations
 - **Efficient Rendering**: 60 FPS target with requestAnimationFrame
 - **Memory Management**: Automatic cleanup of disposed objects
 - **Network Optimization**: Minimal API calls, efficient state updates
-- **Modular Loading**: Only load necessary modules for better performance
 - **Event-Driven Architecture**: Reduces unnecessary processing and improves responsiveness
 
-## 🧹 Codebase Improvements
+## 🧹 Recent Improvements
 
-### Recent Optimizations
-The codebase has been significantly cleaned up and optimized:
+### Codebase Cleanup
+- **Removed Legacy Code**: Eliminated ~200+ lines of unused code
+- **Event-Driven System**: Replaced timer-based decisions with event triggers
+- **Clean Architecture**: Clear separation between frontend observations and backend decisions
+- **Idle Action**: Proper 5-second rest/think/observe periods instead of just waiting
 
-#### **Event-Driven System**
-- **Replaced timer-based decisions** (every 2 seconds) with event-driven triggers
-- **Immediate response** to interesting observations and action completions
-- **Reduced decision interval** from 1.0s to 0.1s for faster responsiveness
+### LLM Integration
+- **Mistral Integration**: Uses Devstral-Small-2507 model by default
+- **Structured Prompts**: Agents receive comprehensive context about world, time, and actions
+- **Simulation Time**: Frontend provides consistent time to backend
+- **Fallback System**: Mock responses when LLM unavailable
 
-#### **Code Consolidation**
-- **Merged redundant methods**: Combined similar decision tracking functions
-- **Unified decision triggering**: Single method handles all decision triggers
-- **Eliminated duplicate code**: Removed ~100 lines of redundant code
-- **Centralized helper methods**: Reduced repetitive `window.app.worldSimulator` checks
+### Decision Flow
+- **Continuous Decisions**: Agents never get stuck, always making new decisions
+- **Action Completion**: Automatic triggers after each action finishes
+- **Observation Events**: Immediate response to environmental changes
+- **Memory Integration**: Past experiences influence future decisions
 
-#### **Anti-Stuck Mechanisms**
-- **Initial decision triggers**: Agents start immediately when simulation begins
-- **Idle agent monitoring**: Periodic checks for agents stuck near interesting things
-- **Fallback system**: Forces decisions if agents are idle for more than 5 seconds
-- **Improved decision logic**: Reduced idle chance from 10% to 5% overall
+## 🤖 LLM Integration
 
-#### **Better Architecture**
-- **Clear separation of concerns**: Each system handles its own responsibilities
-- **Simplified method signatures**: Reduced parameter passing and complexity
-- **Improved maintainability**: Single methods handle similar functionality
-- **Enhanced debugging**: Centralized decision triggering for easier tracing
+The simulation uses Mistral's Devstral-Small-2507 model by default for agent decision-making! Uses the standard OpenAI Chat Completions API format for consistent behavior.
+
+### Default Configuration
+- **Model**: `mistralai/Devstral-Small-2507`
+- **Server**: `http://10.35.30.88:30025`
+- **API Key**: None required
+
+### Run the Simulation
+Simply run the simulation - no setup required:
+```bash
+python app.py
+```
+
+### Alternative Configuration
+You can override the default configuration with environment variables:
+
+```bash
+# For OpenAI
+export LLM_PROVIDER='openai'
+export LLM_API_KEY='your-openai-key'
+export LLM_MODEL='gpt-3.5-turbo'
+
+# For custom OpenAI-compatible server
+export LLM_PROVIDER='custom'
+export LLM_BASE_URL='http://your-server:port'
+export LLM_MODEL='your-model-name'
+export LLM_API_KEY='your-api-key'  # Optional
+```
 
 ## 🔮 Future Enhancements
 
-- **Real AI Integration**: Replace mock decisions with actual LLM calls
 - **More Agent Types**: Additional personalities and behaviors
 - **Complex World**: More interactive objects and environments
 - **Multi-user Support**: Multiple users observing the same simulation
 - **Advanced Memory**: Long-term memory and learning systems
 - **Custom Scenarios**: User-defined agent goals and challenges
+- **Multi-Model Support**: Support for additional LLM providers
 
 ---
 

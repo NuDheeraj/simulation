@@ -42,60 +42,9 @@ def get_agents():
         logger.error(f"Error in get_agents: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
-@agent_bp.route('/<agent_id>/chat', methods=['POST'])
-def chat_with_agent(agent_id):
-    """Chat with a specific agent"""
-    try:
-        if not agent_service or not conversation_service:
-            logger.error("Services not initialized")
-            return jsonify({"error": "Service not initialized"}), 500
-        
-        # Validate agent ID
-        agent_id_errors = validate_agent_id(agent_id)
-        if agent_id_errors:
-            logger.warning(f"Invalid agent ID: {agent_id}, errors: {agent_id_errors}")
-            return jsonify({"error": "Invalid agent ID"}), 400
-        
-        if not agent_service.agent_exists(agent_id):
-            logger.warning(f"Agent not found: {agent_id}")
-            return jsonify({"error": "Agent not found"}), 404
-        
-        data = request.get_json()
-        if not data:
-            logger.warning("No JSON data provided")
-            return jsonify({"error": "No JSON data provided"}), 400
-        
-        user_message = data.get('message', '')
-        
-        # Validate message
-        message_errors = validate_message(user_message)
-        if message_errors:
-            logger.warning(f"Invalid message: {message_errors}")
-            return jsonify({"error": "Invalid message", "details": message_errors}), 400
-        
-        # Get agent and generate response
-        agent = agent_service.get_agent(agent_id)
-        response = agent.generate_response(user_message)
-        
-        # Store conversation
-        conversation_service.add_message(agent_id, user_message, response)
-        
-        logger.info(f"Chat message processed for agent {agent_id}")
-        
-        return jsonify({
-            "agent_id": agent_id,
-            "agent_name": agent.name,
-            "response": response,
-            "timestamp": time.time()
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in chat_with_agent: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
-
 @agent_bp.route('/<agent_id>/conversation')
 def get_conversation(agent_id):
-    """Get conversation history for an agent"""
+    """Get conversation history for an agent (agent-to-agent communication)"""
     if not conversation_service:
         return jsonify({"error": "Service not initialized"}), 500
     
@@ -108,22 +57,6 @@ def get_conversation(agent_id):
         "agent_id": agent_id,
         "conversation": conversation_history
     })
-
-@agent_bp.route('/<agent_id>/reset', methods=['POST'])
-def reset_conversation(agent_id):
-    """Reset conversation history for an agent"""
-    if not conversation_service:
-        return jsonify({"error": "Service not initialized"}), 500
-    
-    if not agent_service or not agent_service.agent_exists(agent_id):
-        return jsonify({"error": "Agent not found"}), 404
-    
-    success = conversation_service.reset_conversation(agent_id)
-    
-    if success:
-        return jsonify({"message": "Conversation reset successfully"})
-    else:
-        return jsonify({"error": "Failed to reset conversation"}), 500
 
 @agent_bp.route('/simulation/start', methods=['POST'])
 def start_simulation():
@@ -205,50 +138,7 @@ def force_agent_decision(agent_id):
         logger.error(f"Error forcing agent decision: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
-@agent_bp.route('/<agent_id>/report-movement', methods=['POST'])
-def report_movement_completion(agent_id):
-    """Report movement completion from frontend"""
-    try:
-        if not agent_service:
-            return jsonify({"error": "Service not initialized"}), 500
-        
-        if not agent_service.agent_exists(agent_id):
-            return jsonify({"error": "Agent not found"}), 404
-        
-        data = request.get_json()
-        if not data or 'position' not in data:
-            return jsonify({"error": "Position data required"}), 400
-        
-        agent = agent_service.get_agent(agent_id)
-        if agent:
-            agent.report_movement_completion(data['position'])
-            logger.info(f"Agent {agent_id} reported movement completion to {data['position']}")
-            return jsonify({"message": "Movement completion reported", "agent_id": agent_id})
-        else:
-            return jsonify({"error": "Agent not found"}), 404
-        
-    except Exception as e:
-        logger.error(f"Error reporting movement completion: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
 
-@agent_bp.route('/<agent_id>/clear-pending-decision', methods=['POST'])
-def clear_pending_decision(agent_id):
-    """Clear pending decision for an agent"""
-    try:
-        if not agent_service:
-            return jsonify({"error": "Service not initialized"}), 500
-        
-        if not agent_service.agent_exists(agent_id):
-            return jsonify({"error": "Agent not found"}), 404
-        
-        # Clear pending decision is now handled by the world simulator
-        # This endpoint is kept for compatibility but doesn't do anything
-        logger.info(f"Cleared pending decision for agent {agent_id}")
-        return jsonify({"message": "Pending decision cleared", "agent_id": agent_id})
-        
-    except Exception as e:
-        logger.error(f"Error clearing pending decision: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
 
 @agent_bp.route('/<agent_id>/brain/decide', methods=['POST'])
 def brain_decide(agent_id):
@@ -267,8 +157,9 @@ def brain_decide(agent_id):
         sensory_data = data['sensory_data']
         agent = agent_service.get_agent(agent_id)
         
-        # Make decision based on sensory input
-        decision = agent.make_decision_from_sensory_data(sensory_data)
+        # Make decision based on sensory input (now with proper async waiting)
+        import asyncio
+        decision = asyncio.run(agent.make_decision_from_sensory_data(sensory_data))
         
         logger.info(f"Brain {agent_id} decided: {decision}")
         return jsonify({"agent_id": agent_id, "decision": decision})
@@ -294,8 +185,9 @@ def brain_action_complete(agent_id):
         action_type = data['action_type']
         result = data.get('result', {})
         
-        agent = agent_service.get_agent(agent_id)
-        agent.process_action_completion(action_type, result)
+        # Get the brain coordination service and report action completion
+        brain_service = agent_service.get_brain_coordination_service()
+        brain_service.report_action_completion(agent_id, action_type, result.get('final_position'))
         
         logger.info(f"Brain {agent_id} processed {action_type} completion")
         return jsonify({"message": "Action completion processed", "agent_id": agent_id})

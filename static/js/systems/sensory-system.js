@@ -21,7 +21,9 @@ class SensorySystem {
             nearbyAgents: this.getNearbyAgents(agentId),
             worldObjects: this.getVisibleObjects(agentId),
             currentAction: agent.currentAction,
-            currentUtterance: agent.currentUtterance
+            currentUtterance: agent.currentUtterance,
+            // Send simulation time from frontend
+            simulationTime: Date.now()
         };
 
         return sensoryData;

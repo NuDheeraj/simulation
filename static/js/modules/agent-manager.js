@@ -109,6 +109,9 @@ class AgentManager {
         visibilityMaterial.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.1); // More visible glow
         visibilitySphere.material = visibilityMaterial;
         
+        // Make visibility sphere not pickable so it doesn't block clicks
+        visibilitySphere.isPickable = false;
+        
         // Store reference for updates
         if (!this.visibilitySpheres) {
             this.visibilitySpheres = new Map();
