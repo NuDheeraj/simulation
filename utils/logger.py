@@ -5,7 +5,7 @@ import logging
 import os
 from datetime import datetime
 
-def setup_logger(name='ai_agents', level=logging.INFO):
+def setup_logger(name='ai_agents', level=logging.DEBUG):
     """Setup logger with file and console handlers"""
     
     # Create logger
@@ -37,7 +37,7 @@ def setup_logger(name='ai_agents', level=logging.INFO):
     
     # Console handler
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.DEBUG)
     console_handler.setFormatter(console_formatter)
     
     # Add handlers to logger

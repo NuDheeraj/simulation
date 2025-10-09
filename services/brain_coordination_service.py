@@ -32,13 +32,14 @@ class BrainCoordinationService:
     def add_agent_brain(self, agent: Agent) -> None:
         """Add an agent brain to the coordination service"""
         self.agents[agent.id] = agent
-        logger.info(f"Added brain for agent {agent.id}")
+        logger.info(f"Added brain for {agent.name}")
     
     def remove_agent_brain(self, agent_id: str) -> None:
         """Remove an agent brain from the coordination service"""
         if agent_id in self.agents:
+            agent_name = self.agents[agent_id].name
             del self.agents[agent_id]
-            logger.info(f"Removed brain for agent {agent_id}")
+            logger.info(f"Removed brain for {agent_name}")
     
     def get_agent_brain(self, agent_id: str) -> Optional[Agent]:
         """Get an agent brain by ID"""
@@ -108,14 +109,15 @@ class BrainCoordinationService:
         # Clear pending decision
         agent.pending_decision = None
         
-        logger.info(f"✅ Agent {agent_id} completed {action_type} action")
+        agent_name = agent.name if agent else agent_id
+        logger.info(f"✅ {agent_name} completed {action_type} action")
     
     def clear_pending_decision(self, agent_id: str) -> None:
         """Clear a pending decision for an agent (called by frontend)"""
         agent = self.get_agent_brain(agent_id)
         if agent:
             agent.pending_decision = None
-            logger.info(f"Cleared pending decision for agent {agent_id}")
+            logger.info(f"Cleared pending decision for {agent.name}")
     
     def force_agent_decision(self, agent_id: str) -> Optional[Dict[str, Any]]:
         """Force an agent to make a decision immediately"""

@@ -18,7 +18,7 @@ This project simulates intelligent agents (Alice and Bob) in a 3D world where th
 - **Framework**: Flask with CORS support
 - **Port**: 5001
 - **Architecture**: Service-oriented with clear separation of concerns
-- **LLM Integration**: Mistral Devstral-Small-2507 model for agent decisions
+- **LLM Integration**: Llama 323B model for agent decisions
 
 ### Frontend (Babylon.js)
 - **3D Engine**: Babylon.js for 3D rendering
@@ -46,7 +46,7 @@ This project simulates intelligent agents (Alice and Bob) in a 3D world where th
 #### 3. **LLM Service** (`services/llm_service.py`)
 - **Purpose**: Handles AI decision-making using LLM models
 - **Key Features**:
-  - **Mistral Integration**: Uses Devstral-Small-2507 model
+  - **Llama Integration**: Uses Llama 323B model
   - **Structured Prompts**: Provides context about world, time, and actions
   - **Fallback System**: Mock responses when LLM unavailable
   - **Simulation Time**: Uses frontend time for consistent decision-making
@@ -245,6 +245,8 @@ simulation/
 ├── app.py                    # Flask application entry point
 ├── config.py                 # Configuration settings
 ├── requirements.txt          # Python dependencies
+├── package.json             # Node.js dependencies and scripts
+├── tsconfig.json            # TypeScript configuration
 ├── models/                   # Data models
 │   ├── agent.py             # Agent class with AI decision logic
 │   └── conversation.py      # Conversation management
@@ -281,6 +283,7 @@ simulation/
 
 ### Prerequisites
 - Python 3.7+
+- Node.js 16+ (for TypeScript development)
 - Modern web browser with WebGL support
 
 ### Installation
@@ -288,8 +291,23 @@ simulation/
 # Install Python dependencies
 pip install -r requirements.txt
 
+# Install Node.js dependencies (for TypeScript development)
+npm install
+
 # Run the Flask server
 python app.py
+```
+
+### TypeScript Development
+```bash
+# Compile TypeScript to JavaScript
+npm run build
+
+# Watch for changes and auto-compile
+npm run build:watch
+
+# Run development server with TypeScript watching
+npm run dev
 ```
 
 ### Access
@@ -338,11 +356,12 @@ Event Triggers:
 ### Backend Technologies
 - **Flask**: Web framework
 - **Flask-CORS**: Cross-origin resource sharing
-- **Mistral LLM**: AI decision-making
+- **Llama LLM**: AI decision-making
 - **JSON**: API communication
 
 ### Frontend Technologies
 - **Babylon.js**: 3D graphics engine
+- **TypeScript**: Type-safe JavaScript development
 - **Modular JavaScript**: Organized, maintainable code structure
 - **CSS3**: Styling and animations
 - **WebGL**: Hardware-accelerated rendering
@@ -362,7 +381,7 @@ Event Triggers:
 - **Idle Action**: Proper 5-second rest/think/observe periods instead of just waiting
 
 ### LLM Integration
-- **Mistral Integration**: Uses Devstral-Small-2507 model by default
+- **Llama Integration**: Uses Llama 323B model by default
 - **Structured Prompts**: Agents receive comprehensive context about world, time, and actions
 - **Simulation Time**: Frontend provides consistent time to backend
 - **Fallback System**: Mock responses when LLM unavailable
@@ -375,12 +394,12 @@ Event Triggers:
 
 ## 🤖 LLM Integration
 
-The simulation uses Mistral's Devstral-Small-2507 model by default for agent decision-making! Uses the standard OpenAI Chat Completions API format for consistent behavior.
+The simulation uses Llama 323B model by default for agent decision-making! Uses the standard OpenAI Chat Completions API format for consistent behavior.
 
 ### Default Configuration
-- **Model**: `mistralai/Devstral-Small-2507`
-- **Server**: `http://10.35.30.88:30025`
-- **API Key**: None required
+- **Model**: `llama-323b`
+- **Server**: `https://10.122.11.68:32076/enterpriseai/v1`
+- **API Key**: `18b3a699-cbb6-4b66-b9ae-5f15871539fa`
 
 ### Run the Simulation
 Simply run the simulation - no setup required:

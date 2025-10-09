@@ -40,6 +40,9 @@ class MovementSystem {
             Math.pow(targetPosition.x - startPosition.x, 2) + 
             Math.pow(targetPosition.z - startPosition.z, 2)
         );
+        const duration = distance / 2.0; // 2 units per second
+        
+        console.log(`🏃 ${agentId} started movement animation (${distance.toFixed(1)} units, ${duration.toFixed(1)}s)`);
 
         // If already at target, just complete the action
         if (distance < 0.1) {
@@ -64,7 +67,6 @@ class MovementSystem {
             return;
         }
 
-        const duration = distance / 2.0; // 2 units per second
         const startTime = Date.now();
 
         // Animation function
@@ -99,18 +101,21 @@ class MovementSystem {
                 
                 console.log(`Agent ${agentId} reached destination at (${agent.position.x}, ${agent.position.z})`);
                 
-            // Report completion to brain
+            // Report completion to brain and then trigger new decision
+            console.log(`🚀 Movement completed for ${agentId}, reporting completion...`);
             brainService.reportActionCompletion(agentId, 'move', {
                 final_position: { ...agent.position },
                 distance_traveled: distance
-            });
-            
-            // Trigger new decision after movement completion
-            console.log(`🚀 Movement completed for ${agentId}, triggering new decision...`);
-            this.triggerDecision(agentId, 'action_completion', {
-                actionType: 'move',
-                final_position: { ...agent.position },
-                distance_traveled: distance
+            }).then(() => {
+                // Trigger new decision AFTER completion is reported
+                console.log(`✅ Completion reported for ${agentId}, triggering new decision...`);
+                this.triggerDecision(agentId, 'action_completion', {
+                    actionType: 'move',
+                    final_position: { ...agent.position },
+                    distance_traveled: distance
+                });
+            }).catch(error => {
+                console.error(`❌ Failed to report completion for ${agentId}:`, error);
             });
             }
         };

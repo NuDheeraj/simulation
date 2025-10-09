@@ -144,24 +144,33 @@ def force_agent_decision(agent_id):
 def brain_decide(agent_id):
     """Brain decision endpoint - receives sensory data and returns decision"""
     try:
+        # Get agent name for consistent logging
+        agent = agent_service.get_agent(agent_id)
+        agent_name = agent.name if agent else agent_id
+        
+        logger.debug(f"🧠 Brain decision request for {agent_name}")
+        
         if not agent_service:
+            logger.error("Service not initialized")
             return jsonify({"error": "Service not initialized"}), 500
         
         if not agent_service.agent_exists(agent_id):
+            logger.error(f"Agent {agent_name} not found")
             return jsonify({"error": "Agent not found"}), 404
         
         data = request.get_json()
         if not data or 'sensory_data' not in data:
+            logger.error("Sensory data required")
             return jsonify({"error": "Sensory data required"}), 400
         
         sensory_data = data['sensory_data']
-        agent = agent_service.get_agent(agent_id)
+        logger.debug(f"📊 Sensory data for {agent_name}: {sensory_data}")
         
         # Make decision based on sensory input (now with proper async waiting)
         import asyncio
+        logger.debug(f"🤔 Making decision for {agent_name}...")
         decision = asyncio.run(agent.make_decision_from_sensory_data(sensory_data))
         
-        logger.info(f"Brain {agent_id} decided: {decision}")
         return jsonify({"agent_id": agent_id, "decision": decision})
         
     except Exception as e:
@@ -172,24 +181,35 @@ def brain_decide(agent_id):
 def brain_action_complete(agent_id):
     """Report action completion to brain"""
     try:
+        # Get agent name for consistent logging
+        agent = agent_service.get_agent(agent_id)
+        agent_name = agent.name if agent else agent_id
+        
+        logger.debug(f"🏁 Action completion report for {agent_name}")
+        
         if not agent_service:
+            logger.error("Service not initialized")
             return jsonify({"error": "Service not initialized"}), 500
         
         if not agent_service.agent_exists(agent_id):
+            logger.error(f"Agent {agent_name} not found")
             return jsonify({"error": "Agent not found"}), 404
         
         data = request.get_json()
         if not data or 'action_type' not in data:
+            logger.error("Action type required")
             return jsonify({"error": "Action type required"}), 400
         
         action_type = data['action_type']
         result = data.get('result', {})
+        logger.debug(f"📋 Action completion data: {data}")
         
         # Get the brain coordination service and report action completion
         brain_service = agent_service.get_brain_coordination_service()
         brain_service.report_action_completion(agent_id, action_type, result.get('final_position'))
         
-        logger.info(f"Brain {agent_id} processed {action_type} completion")
+        logger.info(f"Brain {agent_name} processed {action_type} completion")
+        logger.debug(f"✅ Action completion processed for {agent_name}")
         return jsonify({"message": "Action completion processed", "agent_id": agent_id})
         
     except Exception as e:

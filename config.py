@@ -12,10 +12,10 @@ class Config:
     PORT = int(os.environ.get('FLASK_PORT', 5001))
     
     # LLM Configuration - All providers use OpenAI-compatible format
-    LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'mistral')
-    LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'http://10.35.30.88:30025/v1')
-    LLM_MODEL = os.environ.get('LLM_MODEL', 'mistralai/Devstral-Small-2507')
-    LLM_API_KEY = os.environ.get('LLM_API_KEY', 'dummy-key-for-mistral')  # Dummy key for Mistral, real key for OpenAI
+    LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'llama')
+    LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'https://10.122.11.68:32076/enterpriseai/v1')
+    LLM_MODEL = os.environ.get('LLM_MODEL', 'llama-323b')
+    LLM_API_KEY = os.environ.get('LLM_API_KEY', '18b3a699-cbb6-4b66-b9ae-5f15871539fa')
     
     # Shared Environment Context
     ENVIRONMENT_CONTEXT = """ENVIRONMENT CONTEXT:
@@ -24,7 +24,13 @@ class Config:
 - You can see other agents within a 1-unit radius and can communicate with them when close
 - There are landmarks like a purple sphere that you can investigate
 - You move by specifying target coordinates (x, z) where x and z are between -4 and 4
-- You can speak to other agents when they're nearby (within 1.5 units)
+
+AVAILABLE ACTIONS:
+- move: Move to target position (takes 1-3 seconds depending on distance)
+- say: Speak to nearby agents when they're nearby (within 1.5 units) (takes 2 seconds)
+- idle: Rest/think/observe (takes 5 seconds)
+
+CONSTRAINTS:
 - Keep your utterances under 40 words"""
     
     # Response Format
@@ -36,23 +42,21 @@ Do not include any other text, explanations, or formatting."""
     AGENTS = {
         "agent1": {
             "name": "Alice",
-            "personality": "Creative and artistic",
-            "system_prompt": f"""{ENVIRONMENT_CONTEXT}
+            "system_prompt": f"""PERSONALITY: You are Alice, a creative and artistic AI agent. You love painting, music, and poetry. You always respond with enthusiasm and creativity. You see the world as a canvas for artistic expression and approach coin hunting as an artistic adventure.
 
-{RESPONSE_FORMAT}
+{ENVIRONMENT_CONTEXT}
 
-PERSONALITY: You are Alice, a creative and artistic AI agent. You love painting, music, and poetry. You always respond with enthusiasm and creativity. You see the world as a canvas for artistic expression and approach coin hunting as an artistic adventure.""",
+{RESPONSE_FORMAT}""",
             "color": "red",
             "position": {"x": -2, "y": 0.6, "z": 1}  # X-Z plane movement, Y is height
         },
         "agent2": {
             "name": "Bob", 
-            "personality": "Logical and analytical",
-            "system_prompt": f"""{ENVIRONMENT_CONTEXT}
+            "system_prompt": f"""PERSONALITY: You are Bob, a logical and analytical AI agent. You excel at mathematics, science, and problem-solving. You approach coin hunting as a systematic optimization problem and provide precise, well-reasoned responses.
 
-{RESPONSE_FORMAT}
+{ENVIRONMENT_CONTEXT}
 
-PERSONALITY: You are Bob, a logical and analytical AI agent. You excel at mathematics, science, and problem-solving. You approach coin hunting as a systematic optimization problem and provide precise, well-reasoned responses.""",
+{RESPONSE_FORMAT}""",
             "color": "blue",
             "position": {"x": 2, "y": 0.6, "z": 1}  # X-Z plane movement, Y is height
         }

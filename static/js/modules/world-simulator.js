@@ -58,7 +58,7 @@ class WorldSimulator {
             segments: 16
         }, scene);
         // Direct mapping: simulation X,Y,Z -> 3D X,Y,Z (Y is height, X-Z is movement plane)
-        sphere.position = new BABYLON.Vector3(5, 0.5, 3);
+        sphere.position = new BABYLON.Vector3(0, 0, 0);
         
         // Create material for sphere
         const sphereMaterial = new BABYLON.StandardMaterial("sphere_material", scene);
@@ -406,6 +406,12 @@ class WorldSimulator {
             currentAction: decision.action,
             goalTarget: decision.target
         });
+
+        // Log action execution start
+        const targetInfo = decision.target ? 
+            (decision.target.x !== undefined ? `(${decision.target.x}, ${decision.target.z})` : decision.target.agent) : 
+            'N/A';
+        console.log(`🚀 ${agentId} executing ${decision.action} -> ${targetInfo}`);
 
         if (decision.action === 'move' && decision.target) {
             await this.movementSystem.executeMovement(agentId, decision.target, this.brainService);

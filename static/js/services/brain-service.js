@@ -52,9 +52,14 @@ class BrainService {
 
             if (response.ok) {
                 console.log(`Reported ${actionType} completion to brain ${agentId}`);
+                return true;
+            } else {
+                console.error(`Failed to report ${actionType} completion to brain ${agentId}`);
+                return false;
             }
         } catch (error) {
             console.error(`Error reporting action completion to brain ${agentId}:`, error);
+            throw error;
         }
     }
 }

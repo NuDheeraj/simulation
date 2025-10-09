@@ -39,20 +39,18 @@ class LLMService:
             logger.info(f"🤖 Model: {self.model_name}")
             logger.info(f"🔑 API Key: {'Set' if api_key else 'None (not required)'}")
             
-            # For OpenAI provider, use default endpoint if no custom base_url
-            if self.llm_provider == 'openai' and base_url == 'http://10.35.30.88:30025':
-                base_url = None  # Use default OpenAI endpoint
-                logger.info(f"🔄 Switching to OpenAI default endpoint")
-            elif self.llm_provider == 'mistral':
-                # Ensure Mistral uses the correct base URL with /v1 prefix
-                base_url = 'http://10.35.30.88:30025/v1'
-                logger.info(f"🔧 Using Mistral endpoint: {base_url}")
-            
-            # Initialize client with proper parameters
+            # Initialize client with proper parameters - simple approach
             client_kwargs = {
                 'api_key': api_key,
                 'base_url': base_url
             }
+            
+            # Add SSL verification settings for HTTPS endpoints with self-signed certificates
+            if base_url and base_url.startswith('https://'):
+                import httpx
+                # Create a custom HTTP client that ignores SSL verification
+                http_client = httpx.Client(verify=False)
+                client_kwargs['http_client'] = http_client
             
             # Remove None values to avoid issues
             client_kwargs = {k: v for k, v in client_kwargs.items() if v is not None}
@@ -87,18 +85,19 @@ class LLMService:
             observations, memories, world_objects
         )
         
-        # Log the full prompt for debugging
-        logger.info(f"📝 Full prompt for {agent_name}:")
-        logger.info(f"--- PROMPT START ---")
-        logger.info(prompt)
-        logger.info(f"--- PROMPT END ---")
+        # Log prompt summary for debugging (full prompt only in debug mode)
+        logger.debug(f"📝 Full prompt for {agent_name}:")
+        logger.debug(f"--- PROMPT START ---")
+        logger.debug(prompt)
+        logger.debug(f"--- PROMPT END ---")
+        logger.info(f"📝 Prompt length: {len(prompt)} chars for {agent_name}")
         
         try:
             if self.client:
                 logger.info(f"🔄 Calling LLM API for {agent_name}...")
                 decision = await self._call_llm_api(prompt, system_prompt)
-                logger.info(f"📥 Raw LLM response for {agent_name}: {decision}")
-                logger.info(f"✅ {agent_name}: {decision['action']} -> {decision.get('target', 'N/A')}")
+                logger.debug(f"📥 Raw LLM response for {agent_name}: {decision}")
+                logger.info(f"🎯 {agent_name} decided: {decision['action']} -> {decision.get('target', 'N/A')}")
                 return decision
             else:
                 logger.warning(f"⚠️  No LLM client, using MOCK for {agent_name}")
@@ -145,28 +144,7 @@ Memory (last items):
 {mem_text}
 
 World Objects:
-{world_objects_text}
-
-Task: Decide one action now. Output JSON ONLY with fields:
-{{
-  "action": "move" | "say" | "idle",
-  "target": {{"x":num,"z":num}} OR {{"agent":"Agent-Name"}},
-  "utterance": "..." OR null,
-  "mem_update": "..." OR null
-}}
-
-Actions:
-- move: Move to target position (takes 1-3 seconds depending on distance)
-- say: Speak to nearby agents (takes 2 seconds)
-- idle: Rest/think/observe (takes 5 seconds)
-
-Keep utterance under 40 words. Example response:
-{{
-  "action":"move",
-  "target":{{"x":5,"z":3}},
-  "utterance":null,
-  "mem_update":"Decided to check out the sphere."
-}}"""
+{world_objects_text}"""
         
         return prompt
     
