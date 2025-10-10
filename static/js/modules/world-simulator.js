@@ -11,6 +11,17 @@ class WorldSimulator {
         this.chatBubbleManager = new ChatBubbleManager(sceneManager);
         this.simulationRunning = false;
         this.observationInterval = null;
+        this.simulationStartTime = null; // Track when simulation started
+    }
+
+    /**
+     * Get current simulation time in seconds (starts from 0)
+     */
+    getSimulationTime() {
+        if (!this.simulationStartTime) {
+            return 0;
+        }
+        return Math.floor((Date.now() - this.simulationStartTime) / 1000);
     }
 
     /**
@@ -35,6 +46,8 @@ class WorldSimulator {
             // Initialize observations for all agents
             for (const agentId of Object.keys(agentConfigs)) {
                 this.sensorySystem.initializeObservations(agentId);
+                // Initialize coin display with 0 coins
+                this.chatBubbleManager.updateCoinDisplay(agentId, 0);
             }
         } catch (error) {
             console.error('Error loading agents:', error);
@@ -191,6 +204,7 @@ class WorldSimulator {
     async startSimulation() {
         try {
             this.simulationRunning = true;
+            this.simulationStartTime = Date.now(); // Set simulation start time
             this.startBrainDecisionLoop();
             
             // Trigger initial decisions for all agents when simulation starts
@@ -328,12 +342,19 @@ class WorldSimulator {
                 // Remove coin from 3D scene
                 this.removeCoin(collectedCoin.id);
                 
+                // Increment agent's coin count
+                this.agentManager.incrementCoinCount(agentId);
+                
                 // Update agent memory about collecting coin
                 this.agentManager.updateAgentState(agentId, {
                     currentAction: 'idle' // Reset action after collecting
                 });
                 
-                console.log(`Agent ${agentId} collected coin ${collectedCoin.id}`);
+                // Update coin display
+                const coinCount = this.agentManager.getCoinCount(agentId);
+                this.chatBubbleManager.updateCoinDisplay(agentId, coinCount);
+                
+                console.log(`Agent ${agentId} collected coin ${collectedCoin.id} (total: ${coinCount})`);
                 
                 // Trigger new decision after coin collection
                 this.triggerAgentDecision(agentId, 'action_completion: collect_coin', {
@@ -374,7 +395,7 @@ class WorldSimulator {
 
         try {
             // Send sensory data to brain
-            const sensoryData = this.sensorySystem.getSensoryData(agentId);
+            const sensoryData = this.sensorySystem.getSensoryData(agentId, this);
             console.log(`Requesting decision from brain ${agentId} with sensory data:`, sensoryData);
             const decision = await this.brainService.requestDecision(agentId, sensoryData);
             
@@ -502,7 +523,7 @@ class WorldSimulator {
         if (!agent) return;
 
         // Observation is instant - just gather sensory data
-        const sensoryData = this.sensorySystem.getSensoryData(agentId);
+        const sensoryData = this.sensorySystem.getSensoryData(agentId, this);
         
         // Update agent state
         this.agentManager.updateAgentState(agentId, {
@@ -537,7 +558,7 @@ class WorldSimulator {
             }
 
             // Get sensory data and request decision from brain
-            const sensoryData = this.sensorySystem.getSensoryData(agentId);
+            const sensoryData = this.sensorySystem.getSensoryData(agentId, this);
             const decision = await this.brainService.requestDecision(agentId, sensoryData);
             
             if (decision) {
@@ -562,6 +583,9 @@ class WorldSimulator {
             // Stop simulation first
             await this.stopSimulation();
             
+            // Reset simulation time
+            this.simulationStartTime = null;
+            
             // Reset agent positions to initial positions
             this.agentManager.getAllAgents().forEach((agent, agentId) => {
                 // Reset to initial positions from config
@@ -582,6 +606,11 @@ class WorldSimulator {
             
             // Update visual positions
             this.agentManager.updateVisualPositions();
+            
+            // Reset coin displays
+            this.agentManager.getAllAgents().forEach((agent, agentId) => {
+                this.chatBubbleManager.updateCoinDisplay(agentId, 0);
+            });
             
             console.log('Simulation reset - agents returned to initial positions and coins regenerated');
         } catch (error) {

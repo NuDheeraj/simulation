@@ -11,7 +11,7 @@ class SensorySystem {
     /**
      * Get sensory data for an agent (what they can perceive)
      */
-    getSensoryData(agentId) {
+    getSensoryData(agentId, worldSimulator = null) {
         const agent = this.agentManager.getAgent(agentId);
         if (!agent) return null;
 
@@ -22,8 +22,9 @@ class SensorySystem {
             worldObjects: this.getVisibleObjects(agentId),
             currentAction: agent.currentAction,
             currentUtterance: agent.currentUtterance,
-            // Send simulation time from frontend
-            simulationTime: Date.now()
+            coinsCollected: agent.coinsCollected || 0, // Include coin count in sensory data
+            // Send simulation time (starts from 0, resets on reset)
+            simulationTime: worldSimulator ? worldSimulator.getSimulationTime() : 0
         };
 
         return sensoryData;

@@ -94,5 +94,4 @@ class AgentService:
                 "current_action": agent.current_action,
                 "current_utterance": agent.current_utterance
             } for aid, agent in self.agents.items()},
-            "world_objects": self.brain_coordination_service.get_world_objects()
         }

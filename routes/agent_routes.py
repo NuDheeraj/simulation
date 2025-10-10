@@ -4,7 +4,7 @@ Agent routes for AI Agents Simulation
 from flask import Blueprint, request, jsonify
 from services.agent_service import AgentService
 from services.conversation_service import ConversationService
-from utils.logger import setup_logger
+from utils.logger import setup_logger, setup_agent_logger
 from utils.validators import validate_message, validate_agent_id
 import time
 
@@ -148,7 +148,10 @@ def brain_decide(agent_id):
         agent = agent_service.get_agent(agent_id)
         agent_name = agent.name if agent else agent_id
         
-        logger.debug(f"🧠 Brain decision request for {agent_name}")
+        # Setup agent-specific logger
+        agent_logger = setup_agent_logger(agent_name)
+        
+        agent_logger.info(f"🧠 Brain decision request for {agent_name}")
         
         if not agent_service:
             logger.error("Service not initialized")
@@ -164,13 +167,14 @@ def brain_decide(agent_id):
             return jsonify({"error": "Sensory data required"}), 400
         
         sensory_data = data['sensory_data']
-        logger.debug(f"📊 Sensory data for {agent_name}: {sensory_data}")
+        agent_logger.debug(f"📊 Sensory data for {agent_name}: {sensory_data}")
         
         # Make decision based on sensory input (now with proper async waiting)
         import asyncio
-        logger.debug(f"🤔 Making decision for {agent_name}...")
+        agent_logger.info(f"🤔 Making decision for {agent_name}...")
         decision = asyncio.run(agent.make_decision_from_sensory_data(sensory_data))
         
+        agent_logger.info(f"✅ Decision made: {decision['action']} -> {decision.get('target', 'N/A')}")
         return jsonify({"agent_id": agent_id, "decision": decision})
         
     except Exception as e:
@@ -185,7 +189,10 @@ def brain_action_complete(agent_id):
         agent = agent_service.get_agent(agent_id)
         agent_name = agent.name if agent else agent_id
         
-        logger.debug(f"🏁 Action completion report for {agent_name}")
+        # Setup agent-specific logger
+        agent_logger = setup_agent_logger(agent_name)
+        
+        agent_logger.info(f"🏁 Action completion report for {agent_name}")
         
         if not agent_service:
             logger.error("Service not initialized")
@@ -208,8 +215,7 @@ def brain_action_complete(agent_id):
         brain_service = agent_service.get_brain_coordination_service()
         brain_service.report_action_completion(agent_id, action_type, result.get('final_position'))
         
-        logger.info(f"Brain {agent_name} processed {action_type} completion")
-        logger.debug(f"✅ Action completion processed for {agent_name}")
+        agent_logger.info(f"Brain {agent_name} processed {action_type} completion")
         return jsonify({"message": "Action completion processed", "agent_id": agent_id})
         
     except Exception as e:

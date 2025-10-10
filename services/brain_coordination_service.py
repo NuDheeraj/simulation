@@ -2,7 +2,7 @@
 Brain coordination service for managing AI agent brains and their interactions
 """
 import time
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any, Optional
 from models.agent import Agent
 from utils.logger import setup_logger
 
@@ -13,21 +13,7 @@ class BrainCoordinationService:
     
     def __init__(self):
         self.agents: Dict[str, Agent] = {}
-        self.world_objects: List[Dict[str, Any]] = []
         self.brains_active = False
-        
-        # Initialize world objects that brains can reference
-        self._initialize_world_objects()
-    
-    def _initialize_world_objects(self):
-        """Initialize world objects that agents can observe"""
-        self.world_objects = [
-            {
-                "name": "sphere",
-                "position": {"x": 5, "y": 0.5, "z": 3},  # X-Z plane movement, Y is height
-                "type": "landmark"
-            }
-        ]
     
     def add_agent_brain(self, agent: Agent) -> None:
         """Add an agent brain to the coordination service"""
@@ -49,9 +35,6 @@ class BrainCoordinationService:
         """Get all agent brains"""
         return self.agents.copy()
     
-    def get_world_objects(self) -> List[Dict[str, Any]]:
-        """Get world objects that brains can reference"""
-        return self.world_objects.copy()
     
     def activate_brains(self) -> None:
         """Activate all agent brains for coordination"""
@@ -81,7 +64,6 @@ class BrainCoordinationService:
         
         return {
             "brains": brain_states,
-            "world_objects": self.world_objects.copy(),
             "brains_active": self.brains_active,
             "timestamp": time.time()
         }
@@ -136,20 +118,6 @@ class BrainCoordinationService:
         
         return decision
     
-    def add_world_object(self, name: str, position: Dict[str, float], obj_type: str = "landmark") -> None:
-        """Add a world object to the simulation"""
-        obj = {
-            "name": name,
-            "position": position,
-            "type": obj_type
-        }
-        self.world_objects.append(obj)
-        logger.info(f"Added world object {name} at {position}")
-    
-    def remove_world_object(self, name: str) -> None:
-        """Remove a world object from the simulation"""
-        self.world_objects = [obj for obj in self.world_objects if obj["name"] != name]
-        logger.info(f"Removed world object {name}")
     
     def reset_simulation(self) -> None:
         """Reset the simulation to initial state"""
@@ -174,7 +142,5 @@ class BrainCoordinationService:
             agent.observations.clear()
             agent.last_decision_time = 0
         
-        # Reinitialize world objects
-        self._initialize_world_objects()
         
         logger.info("Simulation reset - agents returned to initial positions")

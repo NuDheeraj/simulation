@@ -69,12 +69,14 @@ class LLMService:
             logger.error(f"Error initializing LLM client: {e}, falling back to mock responses")
     
     async def make_agent_decision(self, agent_id: str, agent_name: str, 
-                           position: Dict[str, float], observations: List[str], 
-                           memories: List[str], world_objects: List[Dict[str, Any]], 
-                           system_prompt: str = None, sensory_data: Dict[str, Any] = None) -> Dict[str, Any]:
+                           position: Dict[str, float], current_observations: List[str], 
+                           action_memories: List[str], observation_memories: List[str], 
+                           system_prompt: str = None, sensory_data: Dict[str, Any] = None, agent_logger = None) -> Dict[str, Any]:
         """Make a decision for an agent using LLM"""
         
-        logger.info(f"🤖 {agent_name} deciding at ({position['x']:.1f}, {position['z']:.1f}) - obs:{len(observations)} mem:{len(memories)} obj:{len(world_objects)}")
+        # Use agent logger if provided, otherwise use main logger
+        log = agent_logger if agent_logger else logger
+        log.info(f"🤖 {agent_name} deciding at ({position['x']:.1f}, {position['z']:.1f}) - obs:{len(current_observations)} action_mem:{len(action_memories)} obs_mem:{len(observation_memories)}")
         
         # Store sensory data for time access
         self._current_sensory_data = sensory_data
@@ -82,69 +84,64 @@ class LLMService:
         # Create the prompt
         prompt = self._create_decision_prompt(
             agent_id, agent_name, position, 
-            observations, memories, world_objects
+            current_observations, action_memories, observation_memories
         )
         
         # Log prompt summary for debugging (full prompt only in debug mode)
-        logger.debug(f"📝 Full prompt for {agent_name}:")
-        logger.debug(f"--- PROMPT START ---")
-        logger.debug(prompt)
-        logger.debug(f"--- PROMPT END ---")
-        logger.info(f"📝 Prompt length: {len(prompt)} chars for {agent_name}")
+        log.debug(f"📝 Full prompt for {agent_name}:")
+        log.debug(f"--- PROMPT START ---")
+        log.debug(prompt)
+        log.debug(f"--- PROMPT END ---")
+        log.info(f"📝 Prompt length: {len(prompt)} chars for {agent_name}")
         
         try:
             if self.client:
-                logger.info(f"🔄 Calling LLM API for {agent_name}...")
+                log.info(f"🔄 Calling LLM API for {agent_name}...")
                 decision = await self._call_llm_api(prompt, system_prompt)
-                logger.debug(f"📥 Raw LLM response for {agent_name}: {decision}")
-                logger.info(f"🎯 {agent_name} decided: {decision['action']} -> {decision.get('target', 'N/A')}")
+                log.debug(f"📥 Raw LLM response for {agent_name}: {decision}")
+                log.info(f"🎯 {agent_name} decided: {decision['action']} -> {decision.get('target', 'N/A')}")
                 return decision
             else:
-                logger.warning(f"⚠️  No LLM client, using MOCK for {agent_name}")
-                decision = self._mock_decision(agent_name, observations, position)
-                logger.info(f"🎭 MOCK {agent_name}: {decision['action']} -> {decision.get('target', 'N/A')}")
+                log.warning(f"⚠️  No LLM client, using MOCK for {agent_name}")
+                decision = self._mock_decision(agent_name, current_observations, position)
+                log.info(f"🎭 MOCK {agent_name}: {decision['action']} -> {decision.get('target', 'N/A')}")
                 return decision
         except Exception as e:
-            logger.error(f"❌ LLM error for {agent_name}: {e}")
-            decision = self._mock_decision(agent_name, observations, position)
-            logger.info(f"🎭 FALLBACK {agent_name}: {decision['action']} -> {decision.get('target', 'N/A')}")
+            log.error(f"❌ LLM error for {agent_name}: {e}")
+            decision = self._mock_decision(agent_name, current_observations, position)
+            log.info(f"🎭 FALLBACK {agent_name}: {decision['action']} -> {decision.get('target', 'N/A')}")
             return decision
     
     def _create_decision_prompt(self, agent_id: str, agent_name: str,
-                               position: Dict[str, float], observations: List[str], 
-                               memories: List[str], world_objects: List[Dict[str, Any]]) -> str:
-        """Create the decision prompt for the LLM - focuses on current state only"""
+                               position: Dict[str, float], current_observations: List[str], 
+                               action_memories: List[str], observation_memories: List[str]) -> str:
+        """Create the decision prompt for the LLM with simplified memory structure"""
         
-        # Format observations
-        obs_text = "\n".join([f"- {obs}" for obs in observations]) if observations else "- No specific observations"
+        # Format current observations (what agent sees right now)
+        obs_text = "\n".join([f"- {obs}" for obs in current_observations]) if current_observations else "- No specific observations"
         
-        # Format memories
-        mem_text = "\n".join([f"- {mem}" for mem in memories]) if memories else "- No recent memories"
+        # Format action memories (raw LLM decisions) - show all stored memories
+        action_mem_text = "\n".join([f"- Time {mem['simulation_time']}s: {mem['decision']}" for mem in action_memories]) if action_memories else "- No recent actions"
         
-        # Format world objects
-        world_objects_text = ""
-        for obj in world_objects:
-            world_objects_text += f"- {obj['name']} at ({obj['position']['x']:.1f}, {obj['position']['y']:.1f})\n"
+        # Format observation memories (raw sensory data) - show all stored memories
+        obs_mem_text = "\n".join([f"- Time {mem.get('simulationTime', 0)}s: {mem}" for mem in observation_memories]) if observation_memories else "- No recent observations"
         
-        if not world_objects_text:
-            world_objects_text = "- No world objects visible"
-        
-        # Get simulation time from sensory data if available
-        simulation_time = int(time.time())  # Default to backend time
+        # Get simulation time from sensory data
+        simulation_time = 0
         if hasattr(self, '_current_sensory_data') and self._current_sensory_data:
-            simulation_time = int(self._current_sensory_data.get('simulationTime', time.time()) / 1000)  # Convert from milliseconds
+            simulation_time = int(self._current_sensory_data.get('simulationTime', 0))
         
         prompt = f"""Current State:
-Position: ({position['x']:.1f}, {position['z']:.1f}). Time: {simulation_time}
+Position: ({position['x']:.1f}, {position['z']:.1f}). Simulation Time: {simulation_time}s
 
-Observations:
+Current Observations:
 {obs_text}
 
-Memory (last items):
-{mem_text}
+Past Actions (what I decided to do):
+{action_mem_text}
 
-World Objects:
-{world_objects_text}"""
+Past Observations (what I saw before):
+{obs_mem_text}"""
         
         return prompt
     
@@ -193,39 +190,35 @@ World Objects:
             logger.error(f"❌ API error: {e}")
             return self._fallback_decision()
     
-    def _mock_decision(self, agent_name: str, observations: List[str], position: Dict[str, float]) -> Dict[str, Any]:
+    def _mock_decision(self, agent_name: str, current_observations: List[str], position: Dict[str, float]) -> Dict[str, Any]:
         """Fallback mock decision when LLM is not available"""
         import random
         
         # Simple rule-based decision making
-        if any("coin" in obs.lower() for obs in observations):
+        if any("coin" in obs.lower() for obs in current_observations):
             return {
                 "action": "move",
                 "target": {"x": position['x'] + random.uniform(-2, 2), "z": position['z'] + random.uniform(-2, 2)},
-                "utterance": None,
-                "mem_update": "Looking for coins to collect"
+                "utterance": None
             }
-        elif any("Agent-" in obs for obs in observations):
+        elif any("Agent-" in obs for obs in current_observations):
             if random.random() < 0.5:
                 return {
                     "action": "say",
                     "target": None,
-                    "utterance": "Hello there! How's your coin hunting going?",
-                    "mem_update": "Greeted another agent"
+                    "utterance": "Hello there! How's your coin hunting going?"
                 }
             else:
                 return {
                     "action": "move",
                     "target": {"x": position['x'] + random.uniform(-3, 3), "z": position['z'] + random.uniform(-3, 3)},
-                    "utterance": None,
-                    "mem_update": "Continuing exploration after seeing another agent"
+                    "utterance": None
                 }
         else:
             return {
                 "action": "move",
                 "target": {"x": position['x'] + random.uniform(-2, 2), "z": position['z'] + random.uniform(-2, 2)},
-                "utterance": None,
-                "mem_update": "Exploring the area systematically"
+                "utterance": None
             }
     
     def _fallback_decision(self) -> Dict[str, Any]:
@@ -233,6 +226,5 @@ World Objects:
         return {
             "action": "idle",
             "target": None,
-            "utterance": None,
-            "mem_update": "Taking a moment to think"
+            "utterance": None
         }

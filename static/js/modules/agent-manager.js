@@ -21,7 +21,8 @@ class AgentManager {
             goalTarget: null,
             currentUtterance: null,
             utteranceEndTime: 0,
-            brainId: agentId // Reference to brain service
+            brainId: agentId, // Reference to brain service
+            coinsCollected: 0 // Track coins collected by this agent
         });
     }
 
@@ -166,7 +167,27 @@ class AgentManager {
             agent.goalTarget = null;
             agent.currentUtterance = null;
             agent.utteranceEndTime = 0;
+            agent.coinsCollected = 0; // Reset coin count
         }
+    }
+
+    /**
+     * Increment coin count for an agent
+     */
+    incrementCoinCount(agentId) {
+        const agent = this.agents.get(agentId);
+        if (agent) {
+            agent.coinsCollected++;
+            console.log(`Agent ${agentId} now has ${agent.coinsCollected} coins`);
+        }
+    }
+
+    /**
+     * Get coin count for an agent
+     */
+    getCoinCount(agentId) {
+        const agent = this.agents.get(agentId);
+        return agent ? agent.coinsCollected : 0;
     }
 
     /**

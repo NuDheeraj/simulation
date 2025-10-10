@@ -6,6 +6,7 @@ import time
 import random
 import math
 from services.llm_service import LLMService
+from utils.logger import setup_agent_logger
 
 class Agent:
     """Represents an AI agent with personality, observation, memory, and decision-making capabilities"""
@@ -24,13 +25,17 @@ class Agent:
         # Initialize LLM service
         self.llm_service = LLMService()
         
+        # Initialize agent-specific logger
+        self.logger = setup_agent_logger(self.name)
+        
         # Agent simulation properties
         self.current_action = "idle"  # "move", "say", "idle"
         self.goal_target = None  # {"x": num, "y": num} or {"agent": "Agent-B"}
         
-        # Memory system
-        self.memory: List[Dict[str, Any]] = []
-        self.max_memory_items = 10
+        # Simplified memory system
+        self.action_memory: List[str] = []  # LLM decisions/actions taken
+        self.observation_memory: List[str] = []  # Past sensory observations
+        self.max_memory_items = 50  # Keep last 50 of each type
         
         
         # Action cooldowns
@@ -78,23 +83,25 @@ class Agent:
         return math.sqrt(dx*dx + dz*dz)
     
     
-    def add_memory(self, content: str, memory_type: str = "observation") -> None:
-        """Add a memory item"""
-        memory_item = {
-            "content": content,
-            "type": memory_type,
-            "timestamp": time.time()
-        }
-        self.memory.append(memory_item)
-        
-        # Keep only the most recent memories
-        if len(self.memory) > self.max_memory_items:
-            self.memory = self.memory[-self.max_memory_items:]
+    def add_action_memory(self, content: str) -> None:
+        """Add an action memory (LLM decision/action)"""
+        self.action_memory.append(content)
+        if len(self.action_memory) > self.max_memory_items:
+            self.action_memory = self.action_memory[-self.max_memory_items:]
     
-    def get_recent_memories(self, count: int = 3) -> List[str]:
-        """Get the most recent memory items"""
-        recent = self.memory[-count:] if len(self.memory) >= count else self.memory
-        return [mem["content"] for mem in recent]
+    def add_observation_memory(self, content: str) -> None:
+        """Add an observation memory (past sensory data)"""
+        self.observation_memory.append(content)
+        if len(self.observation_memory) > self.max_memory_items:
+            self.observation_memory = self.observation_memory[-self.max_memory_items:]
+    
+    def get_action_memories(self) -> List[str]:
+        """Get action memories (LLM decisions)"""
+        return self.action_memory
+    
+    def get_observation_memories(self) -> List[str]:
+        """Get observation memories (past sensory data)"""
+        return self.observation_memory
     
     def can_make_decision(self) -> bool:
         """Check if agent can make a new decision"""
@@ -130,7 +137,7 @@ class Agent:
                             "z": self.position["z"] + random.uniform(-2, 2)
                         }
                     else:
-                        # Keep within world bounds
+                        # Keep within world bounds (-4 to +4 as per frontend coin generation)
                         decision["target"]["x"] = max(-4, min(4, decision["target"]["x"]))
                         decision["target"]["z"] = max(-4, min(4, decision["target"]["z"]))
         
@@ -144,13 +151,32 @@ class Agent:
         else:
             decision["utterance"] = None
         
-        # Ensure mem_update is a string or None
-        if decision.get("mem_update") and not isinstance(decision["mem_update"], str):
-            decision["mem_update"] = str(decision["mem_update"])
+        # Remove mem_update field if present (no longer used)
+        if "mem_update" in decision:
+            del decision["mem_update"]
         
         return decision
     
+    def _add_action_memory(self, decision: Dict[str, Any], simulation_time: int = 0) -> None:
+        """Add action memory (raw LLM decision)"""
+        # Store raw LLM decision directly as memory
+        action_memory = {
+            'decision': decision,
+            'simulation_time': simulation_time,
+            'timestamp': time.time()
+        }
+        self.action_memory.append(action_memory)
+        if len(self.action_memory) > self.max_memory_items:
+            self.action_memory = self.action_memory[-self.max_memory_items:]
+        self.logger.debug(f"Action memory added: {action_memory}")
     
+    def _add_observation_memory(self, sensory_data: Dict[str, Any]) -> None:
+        """Add observation memory (raw sensory data)"""
+        # Store raw sensory data directly as memory
+        self.observation_memory.append(sensory_data)
+        if len(self.observation_memory) > self.max_memory_items:
+            self.observation_memory = self.observation_memory[-self.max_memory_items:]
+        self.logger.debug(f"Observation memory added: {sensory_data}")
     
     async def make_decision_from_sensory_data(self, sensory_data: Dict[str, Any]) -> Dict[str, Any]:
         """Make a decision based on sensory input from the world using LLM"""
@@ -163,54 +189,64 @@ class Agent:
         
         # Check if agent can make a decision
         if not self.can_make_decision():
-            return {"action": current_action, "target": None, "utterance": None, "mem_update": None}
+            return {"action": current_action, "target": None, "utterance": None}
         
         # Set decision in progress flag
         self._decision_in_progress = True
         
-        # Generate observations from sensory data
-        observations = self._generate_observations_from_sensory_data(nearby_agents, world_objects)
+        # Get simulation time from sensory data
+        simulation_time = sensory_data.get('simulationTime', 0)
         
-        # Get recent memories
-        recent_memories = self.get_recent_memories(2)
+        # Use raw sensory data directly as current observations
+        current_observations = [f"Raw sensory data: {sensory_data}"]
         
-        # Use LLM service for decision making (already async)
+        # Get action and observation memories for the prompt (BEFORE adding current observation)
+        action_memories = self.get_action_memories()
+        observation_memories = self.get_observation_memories()
+        
+        # Use LLM service for decision making
         decision = await self.llm_service.make_agent_decision(
             agent_id=self.id,
             agent_name=self.name,
             position=position,
-            observations=observations,
-            memories=recent_memories,
-            world_objects=world_objects,
+            current_observations=current_observations,
+            action_memories=action_memories,
+            observation_memories=observation_memories,
             system_prompt=self.system_prompt,
-            sensory_data=sensory_data  # Pass sensory data for simulation time
+            sensory_data=sensory_data,
+            agent_logger=self.logger
         )
         
         # Validate and clean up the decision
         decision = self._validate_decision(decision)
         
-        # Update memory if there's a memory update
-        if decision.get("mem_update"):
-            self.add_memory(decision["mem_update"], "decision")
+        # Add action memory (what agent decided to do)
+        self._add_action_memory(decision, simulation_time)
+        
+        # Add current observation to memory AFTER decision (so it becomes past observation for next decision)
+        self._add_observation_memory(sensory_data)
+        
+        # Log agent decision
+        self.logger.info(f"Decision: {decision['action']} -> {decision.get('target', 'N/A')}")
         
         # Update decision timing
         self.last_decision_time = time.time()
         
         return decision
     
-    def _generate_observations_from_sensory_data(self, nearby_agents: List[Dict], world_objects: List[Dict]) -> List[str]:
-        """Generate observations from sensory data"""
+    def _generate_current_observations(self, nearby_agents: List[Dict], world_objects: List[Dict]) -> List[str]:
+        """Generate current observations from sensory data (what agent sees right now)"""
         observations = []
         
         # Observe nearby agents
         for agent in nearby_agents:
-            observations.append(f"Agent-{agent['name']} at ({agent['position']['x']:.1f}, {agent['position']['y']:.1f}) distance {agent['distance']:.1f}")
+            observations.append(f"Agent-{agent['name']} at ({agent['position']['x']:.1f}, {agent['position']['z']:.1f}) distance {agent['distance']:.1f}")
             if agent.get('currentUtterance'):
-                observations.append(f"Last heard: Agent-{agent['name']}: '{agent['currentUtterance']}'")
+                observations.append(f"Agent-{agent['name']} is saying: '{agent['currentUtterance']}'")
         
         # Observe world objects
         for obj in world_objects:
-            observations.append(f"The {obj['name']} is at ({obj['position']['x']:.1f}, {obj['position']['y']:.1f}) distance {obj['distance']:.1f}")
+            observations.append(f"{obj['name']} at ({obj['position']['x']:.1f}, {obj['position']['z']:.1f}) distance {obj['distance']:.1f}")
         
         return observations
     
@@ -221,8 +257,10 @@ class Agent:
             if 'final_position' in result:
                 self.position = result['final_position'].copy()
             self.add_memory(f"Completed movement", "action")
+            self.logger.info(f"Action completed: move to ({self.position['x']:.1f}, {self.position['z']:.1f})")
         elif action_type == "say":
             self.add_memory(f"Spoke: {result.get('message', '')}", "action")
+            self.logger.info(f"Action completed: say '{result.get('message', '')}'")
         elif action_type == "observe":
             # Process observation results
             sensory_data = result.get('sensory_data', {})
@@ -232,4 +270,5 @@ class Agent:
             )
             for obs in observations:
                 self.add_memory(obs, "observation")
+            self.logger.info(f"Action completed: observe - {len(observations)} observations")
     

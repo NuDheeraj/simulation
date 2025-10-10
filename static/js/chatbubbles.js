@@ -5,6 +5,7 @@ class ChatBubbleManager {
     constructor(sceneManager) {
         this.sceneManager = sceneManager;
         this.chatBubbles = {};
+        this.coinDisplays = {};
     }
 
     /**
@@ -26,7 +27,7 @@ class ChatBubbleManager {
         
         // Create a 3D plane to display the texture - smaller size
         const plane = BABYLON.MeshBuilder.CreatePlane(`${agentId}_chat_plane`, {width: 2, height: 0.6}, scene);
-        plane.position = new BABYLON.Vector3(0, 0.8, 0); // Position at the top of the capsule
+        plane.position = new BABYLON.Vector3(0, 1.8, 0); // Position centered above coin display
         plane.parent = scene.getMeshByName(agentId);
         
         // Create material for the plane with proper transparency
@@ -42,6 +43,9 @@ class ChatBubbleManager {
         material.ambientColor = new BABYLON.Color3(1, 1, 1); // White ambient
         plane.material = material;
         
+        // Set render order to be in front of coin displays
+        plane.renderingGroupId = 1;
+        
         // Store the chat bubble components
         this.chatBubbles[agentId] = {
             texture: dynamicTexture,
@@ -51,6 +55,58 @@ class ChatBubbleManager {
         };
         
         console.log(`Created SMS-style chat bubble for ${agentId}:`, this.chatBubbles[agentId]);
+        
+        // Create coin display for this agent
+        this.createCoinDisplay(agentId, agent);
+    }
+
+    /**
+     * Create a floating coin count display for an agent
+     */
+    createCoinDisplay(agentId, agent) {
+        const scene = this.sceneManager.getScene();
+        
+        // Create dynamic texture for the coin display
+        const dynamicTexture = new BABYLON.DynamicTexture(`${agentId}_coin_texture`, {width: 200, height: 60}, scene);
+        const context = dynamicTexture.getContext();
+        
+        // Clear the texture with transparent background
+        context.clearRect(0, 0, 200, 60);
+        
+        // Ensure the texture supports alpha
+        dynamicTexture.hasAlpha = true;
+        dynamicTexture.update();
+        
+        // Create a 3D plane to display the texture - smaller size for coin count
+        const plane = BABYLON.MeshBuilder.CreatePlane(`${agentId}_coin_plane`, {width: 1.2, height: 0.4}, scene);
+        plane.position = new BABYLON.Vector3(0, 1.6, 0); // Position centered below chat bubble
+        plane.parent = scene.getMeshByName(agentId);
+        
+        // Create material for the plane with proper transparency
+        const material = new BABYLON.StandardMaterial(`${agentId}_coin_material`, scene);
+        material.diffuseTexture = dynamicTexture;
+        material.emissiveTexture = dynamicTexture;
+        material.disableLighting = true;
+        material.backFaceCulling = false;
+        material.alpha = 0.0; // Start invisible
+        material.useAlphaFromDiffuseTexture = true; // Use alpha from texture
+        material.diffuseColor = new BABYLON.Color3(1, 1, 1); // White base color
+        material.specularColor = new BABYLON.Color3(0, 0, 0); // No specular
+        material.ambientColor = new BABYLON.Color3(1, 1, 1); // White ambient
+        plane.material = material;
+        
+        // Set render order to be behind chat bubbles
+        plane.renderingGroupId = 0;
+        
+        // Store the coin display components
+        this.coinDisplays[agentId] = {
+            texture: dynamicTexture,
+            plane: plane,
+            sphere: scene.getMeshByName(agentId),
+            lastCount: 0
+        };
+        
+        console.log(`Created coin display for ${agentId}:`, this.coinDisplays[agentId]);
     }
 
     /**
@@ -148,6 +204,57 @@ class ChatBubbleManager {
     }
 
     /**
+     * Update the coin count display for an agent
+     */
+    updateCoinDisplay(agentId, coinCount) {
+        const coinDisplay = this.coinDisplays[agentId];
+        if (!coinDisplay) return;
+
+        coinDisplay.lastCount = coinCount;
+        const context = coinDisplay.texture.getContext();
+        
+        // Clear the canvas with transparent background
+        context.clearRect(0, 0, 200, 60);
+        
+        // Draw the coin display background
+        context.fillStyle = '#FFD700'; // Gold color
+        context.beginPath();
+        context.roundRect(5, 5, 190, 50, 12);
+        context.fill();
+        
+        // Add shadow effect
+        context.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        context.shadowBlur = 3;
+        context.shadowOffsetX = 0;
+        context.shadowOffsetY = 2;
+        
+        // Draw the coin icon (💰)
+        context.fillStyle = '#FFA500'; // Orange for coin
+        context.font = 'bold 20px Arial';
+        context.textAlign = 'center';
+        context.fillText('💰', 30, 35);
+        
+        // Draw the count
+        context.fillStyle = '#000000'; // Black text
+        context.font = 'bold 16px Arial';
+        context.textAlign = 'center';
+        context.fillText(`${coinCount}`, 140, 35);
+        
+        // Reset shadow
+        context.shadowColor = 'transparent';
+        context.shadowBlur = 0;
+        context.shadowOffsetX = 0;
+        context.shadowOffsetY = 0;
+        
+        // Update the texture
+        coinDisplay.texture.update();
+        // Always make visible, even when zero coins
+        coinDisplay.plane.material.alpha = 0.9;
+        
+        console.log(`Updated coin display for ${agentId}: ${coinCount} coins`);
+    }
+
+    /**
      * Update the position of a chat bubble to follow the agent
      */
     updateFloatingChatPosition(agentId) {
@@ -209,6 +316,25 @@ class ChatBubbleManager {
             }
             delete this.chatBubbles[agentId];
         }
+        
+        // Also remove coin display
+        this.removeCoinDisplay(agentId);
+    }
+
+    /**
+     * Remove a coin display
+     */
+    removeCoinDisplay(agentId) {
+        const coinDisplay = this.coinDisplays[agentId];
+        if (coinDisplay) {
+            if (coinDisplay.plane) {
+                coinDisplay.plane.dispose();
+            }
+            if (coinDisplay.texture) {
+                coinDisplay.texture.dispose();
+            }
+            delete this.coinDisplays[agentId];
+        }
     }
 
     /**
@@ -219,6 +345,7 @@ class ChatBubbleManager {
             this.removeChatBubble(agentId);
         });
         this.chatBubbles = {};
+        this.coinDisplays = {};
     }
 }
 

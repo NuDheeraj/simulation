@@ -243,6 +243,7 @@ function setupSimulationControls() {
 function updateSimulationStatus() {
     const statusSpan = document.getElementById('simulationStatus');
     const statusDiv = statusSpan?.parentElement;
+    const timeSpan = document.getElementById('simulationTime');
     
     if (statusSpan && statusDiv) {
         const isRunning = window.app.isSimulationRunning();
@@ -250,6 +251,12 @@ function updateSimulationStatus() {
         
         // Update CSS classes
         statusDiv.className = 'simulation-status ' + (isRunning ? 'running' : 'stopped');
+    }
+    
+    // Update simulation time display
+    if (timeSpan && window.app && window.app.worldSimulator) {
+        const simulationTime = window.app.worldSimulator.getSimulationTime();
+        timeSpan.textContent = `Time: ${simulationTime}s`;
     }
     
     // Update coin statistics
