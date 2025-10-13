@@ -60,6 +60,16 @@ class AgentService:
         self.brain_coordination_service.remove_agent_brain(agent_id)
         return True
     
+    def start_simulation(self) -> None:
+        """Start the simulation"""
+        self.brain_coordination_service.activate_brains()
+        logger.info("Simulation started")
+    
+    def stop_simulation(self) -> None:
+        """Stop the simulation"""
+        self.brain_coordination_service.deactivate_brains()
+        logger.info("Simulation stopped")
+    
     def activate_brains(self) -> None:
         """Activate all agent brains"""
         self.brain_coordination_service.activate_brains()

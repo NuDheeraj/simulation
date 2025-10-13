@@ -199,6 +199,12 @@ class WorldSimulator {
                 clearInterval(this.observationInterval);
                 this.observationInterval = null;
             }
+            
+            // Stop all ongoing movement animations
+            if (this.movementSystem) {
+                this.movementSystem.stopAllAnimations();
+            }
+            
             console.log('World simulation stopped');
         } catch (error) {
             console.error('Error stopping simulation:', error);
@@ -249,20 +255,33 @@ class WorldSimulator {
         console.log('Triggering initial decisions for all agents...');
         
         const agents = Array.from(this.agentManager.getAllAgents().entries());
+        console.log(`Found ${agents.length} agents to process`);
         
-        for (let i = 0; i < agents.length; i++) {
-            const [agentId, agent] = agents[i];
-            if (agent.currentAction === 'idle') {
-                console.log(`Triggering initial decision for agent ${agentId}`);
-                await this.requestDecisionFromBrain(agentId);
-                
-                
-                // Small delay between agents to avoid overwhelming the system
-                if (i < agents.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
+        // First ensure all agents are in idle state
+        for (const [agentId, agent] of agents) {
+            if (agent.currentAction !== 'idle') {
+                console.log(`⚠️ Agent ${agentId} not in idle state (${agent.currentAction}), forcing to idle`);
+                this.agentManager.updateAgentState(agentId, {
+                    currentAction: 'idle',
+                    goalTarget: null,
+                    currentUtterance: null
+                });
             }
         }
+        
+        // Now trigger decisions for all agents
+        for (let i = 0; i < agents.length; i++) {
+            const [agentId, agent] = agents[i];
+            console.log(`✅ Triggering initial decision for agent ${agentId}`);
+            await this.requestDecisionFromBrain(agentId);
+            
+            // Small delay between agents to avoid overwhelming the system
+            if (i < agents.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+        
+        console.log('Finished triggering initial decisions for all agents');
     }
     
     
@@ -553,13 +572,35 @@ class WorldSimulator {
      */
     async resetSimulation() {
         try {
+            console.log('🔄 Starting simulation reset...');
+            
             // Stop simulation first
             await this.stopSimulation();
+            console.log('✅ Simulation stopped');
+            
+            // Reset backend state (clears memories, observations, and agent state)
+            try {
+                console.log('📡 Calling backend reset...');
+                const response = await fetch('/api/agents/simulation/reset', {
+                    method: 'POST'
+                });
+                if (!response.ok) {
+                    console.error('❌ Failed to reset backend state');
+                } else {
+                    console.log('✅ Backend reset successful');
+                }
+            } catch (error) {
+                console.error('❌ Error calling backend reset:', error);
+            }
+            
+            // Small delay to ensure backend is fully reset
+            await new Promise(resolve => setTimeout(resolve, 200));
             
             // Reset simulation time
             this.simulationStartTime = null;
             
             // Reset agent positions to initial positions
+            console.log('🎯 Resetting agent positions...');
             this.agentManager.getAllAgents().forEach((agent, agentId) => {
                 // Reset to initial positions from config
                 let initialPosition;
@@ -571,11 +612,13 @@ class WorldSimulator {
                 
                 if (initialPosition) {
                     this.agentManager.resetAgent(agentId, initialPosition);
+                    console.log(`✅ Reset ${agentId} to position (${initialPosition.x}, ${initialPosition.z})`);
                 }
             });
             
             // Reset coins
             this.resetCoins();
+            console.log('✅ Coins reset');
             
             // Update visual positions
             this.agentManager.updateVisualPositions();
@@ -585,9 +628,9 @@ class WorldSimulator {
                 this.chatBubbleManager.updateCoinDisplay(agentId, 0);
             });
             
-            console.log('Simulation reset - agents returned to initial positions and coins regenerated');
+            console.log('✅ Simulation reset complete - agents returned to initial positions and coins regenerated');
         } catch (error) {
-            console.error('Error resetting simulation:', error);
+            console.error('❌ Error resetting simulation:', error);
         }
     }
     

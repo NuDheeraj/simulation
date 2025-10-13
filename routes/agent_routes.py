@@ -111,8 +111,16 @@ def reset_simulation():
         if not agent_service:
             return jsonify({"error": "Service not initialized"}), 500
         
+        # Reset agent brains (clears memories, observations, state)
         agent_service.reset_simulation()
-        logger.info("Simulation reset via API")
+        
+        # Reset all conversations
+        if conversation_service:
+            for agent_id in agent_service.get_all_agents().keys():
+                conversation_service.reset_conversation(agent_id)
+            logger.info("All conversations cleared")
+        
+        logger.info("Simulation reset via API - all state cleared")
         return jsonify({"message": "Simulation reset successfully"})
         
     except Exception as e:

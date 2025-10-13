@@ -121,7 +121,8 @@ class BrainCoordinationService:
     
     def reset_simulation(self) -> None:
         """Reset the simulation to initial state"""
-        self.stop_simulation()
+        # Stop the simulation first
+        self.deactivate_brains()
         
         # Reset all agents to their initial positions and clear state
         for agent in self.agents.values():
@@ -138,9 +139,11 @@ class BrainCoordinationService:
             agent.goal_target = None
             agent.current_utterance = None
             agent.utterance_end_time = 0
-            agent.memory.clear()
-            agent.observations.clear()
+            agent.action_memory.clear()
+            agent.observation_memory.clear()
+            agent.conversation_history.clear()
             agent.last_decision_time = 0
+            agent.pending_decision = None
         
         
         logger.info("Simulation reset - agents returned to initial positions")

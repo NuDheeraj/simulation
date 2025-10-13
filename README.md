@@ -62,6 +62,33 @@ This project simulates intelligent agents (Alice and Bob) in a 3D world where th
   - `make_decision_from_sensory_data()`: Main decision-making method
   - `_generate_observations_from_sensory_data()`: Process frontend observations
 
+### Utilities
+
+#### 1. **Logger** (`utils/logger.py`)
+- **Purpose**: Centralized logging system for the application
+- **Key Features**:
+  - **Dual Logging**: Both file and console output
+  - **Agent-Specific Logs**: Individual log files per agent (`agent_Alice_*.log`, `agent_Bob_*.log`)
+  - **Main Log**: Consolidated log file (`ai_agents_*.log`)
+  - **Date-Based Files**: Automatic daily log file rotation
+  - **Configurable Levels**: Debug, info, warning, error logging
+- **Key Functions**:
+  - `setup_logger()`: Creates main application logger
+  - `setup_agent_logger()`: Creates agent-specific logger with dual output
+
+#### 2. **Validators** (`utils/validators.py`)
+- **Purpose**: Input validation and error checking
+- **Key Features**:
+  - **Agent Configuration**: Validates agent config structure and data types
+  - **Message Validation**: Ensures user messages are valid (length, content)
+  - **Agent ID Validation**: Checks agent identifiers for correctness
+  - **Position Validation**: Validates 3D coordinates (x, y, z)
+  - **Color Validation**: Ensures agent colors are supported
+- **Key Functions**:
+  - `validate_agent_config()`: Validates complete agent configuration
+  - `validate_message()`: Validates user chat messages
+  - `validate_agent_id()`: Validates agent identifiers
+
 ### API Endpoints
 
 #### Agent Management
@@ -243,6 +270,7 @@ The simulation uses an **event-driven decision system** for natural, responsive 
 ```
 simulation/
 ├── app.py                    # Flask application entry point
+├── run_debug.py             # Debug mode runner with enhanced logging
 ├── config.py                 # Configuration settings
 ├── requirements.txt          # Python dependencies
 ├── package.json             # Node.js dependencies and scripts
@@ -258,6 +286,9 @@ simulation/
 ├── routes/                   # API endpoints
 │   ├── agent_routes.py      # Agent-related endpoints
 │   └── main_routes.py       # Main application routes
+├── utils/                    # Utility modules
+│   ├── logger.py            # Logging utilities (daily logs per agent)
+│   └── validators.py        # Input validation utilities
 ├── static/js/               # Frontend JavaScript modules
 │   ├── modules/             # Core application modules
 │   │   ├── agent-manager.js
@@ -275,8 +306,10 @@ simulation/
 │   └── index.html          # Main application page
 ├── static/css/             # Stylesheets
 │   └── main.css           # Application styling
-└── logs/                   # Application logs
-    └── ai_agents_*.log    # Log files
+└── logs/                   # Application logs (auto-generated)
+    ├── ai_agents_*.log     # Main consolidated log
+    ├── agent_Alice_*.log   # Alice-specific log
+    └── agent_Bob_*.log     # Bob-specific log
 ```
 
 ## 🚀 Getting Started
@@ -296,6 +329,24 @@ npm install
 
 # Run the Flask server
 python app.py
+
+# OR run with debug mode and enhanced logging
+python run_debug.py
+```
+
+### Debug Mode
+The `run_debug.py` script provides enhanced debugging capabilities:
+- **Full Debug Logging**: All logs shown in console and saved to files
+- **Detailed Tracing**: Function names, line numbers, timestamps
+- **Agent-Specific Logs**: Separate log files for each agent
+- **Development Port**: Runs on port 5001 instead of 8080
+- **Auto-Reload**: Flask debug mode with automatic code reloading
+
+```bash
+# Start with debug logging
+python run_debug.py
+
+# Access at http://localhost:5001
 ```
 
 ### TypeScript Development
@@ -371,6 +422,44 @@ Event Triggers:
 - **Memory Management**: Automatic cleanup of disposed objects
 - **Network Optimization**: Minimal API calls, efficient state updates
 - **Event-Driven Architecture**: Reduces unnecessary processing and improves responsiveness
+
+## 📊 Logging System
+
+The simulation features a comprehensive logging system that provides detailed insights into agent behavior and system operations:
+
+### Log Types
+1. **Main Application Log** (`logs/ai_agents_YYYYMMDD.log`)
+   - Consolidated log of all system activities
+   - Includes backend services, API calls, and coordination
+   - Detailed function names, line numbers, and timestamps
+
+2. **Agent-Specific Logs** (`logs/agent_[Name]_YYYYMMDD.log`)
+   - Individual logs for each agent (Alice, Bob)
+   - Tracks agent decisions, observations, and actions
+   - Helpful for debugging agent-specific behavior
+
+3. **Console Output**
+   - Real-time logging to terminal for immediate feedback
+   - Color-coded log levels (DEBUG, INFO, WARNING, ERROR)
+   - Agent name prefixes for easy identification
+
+### Log Features
+- **Daily Rotation**: New log files created automatically each day
+- **Dual Output**: All logs written to both file and console
+- **Configurable Levels**: Adjust verbosity as needed
+- **Cross-Reference**: Agent logs also written to main log for correlation
+
+### Accessing Logs
+```bash
+# View main log in real-time
+tail -f logs/ai_agents_$(date +%Y%m%d).log
+
+# View Alice's log
+tail -f logs/agent_Alice_$(date +%Y%m%d).log
+
+# View Bob's log
+tail -f logs/agent_Bob_$(date +%Y%m%d).log
+```
 
 ## 🧹 Recent Improvements
 

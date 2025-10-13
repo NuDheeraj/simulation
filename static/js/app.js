@@ -356,11 +356,17 @@ function setupLLMConfiguration() {
                     // Enable simulation buttons now that config is validated (this session only)
                     updateSimulationButtonsState(true);
                     
-                    // Remove loading state and show validated state (no need for status message - button shows it)
+                    // Remove loading state and show validated state
                     saveBtn.classList.remove('loading');
                     saveBtn.disabled = true;
                     saveBtn.classList.add('validated');
                     saveBtn.textContent = '✅ Validated';
+                    
+                    // Clear the status message
+                    if (statusDiv) {
+                        statusDiv.className = 'config-status';
+                        statusDiv.textContent = '';
+                    }
                 } else {
                     // Failed validation - re-enable button
                     saveBtn.disabled = false;

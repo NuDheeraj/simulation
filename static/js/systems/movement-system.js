@@ -4,6 +4,20 @@
 class MovementSystem {
     constructor(agentManager) {
         this.agentManager = agentManager;
+        this.activeAnimations = new Map(); // Track active animations
+    }
+    
+    /**
+     * Stop all ongoing animations
+     */
+    stopAllAnimations() {
+        this.activeAnimations.forEach((animationId, agentId) => {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        });
+        this.activeAnimations.clear();
+        console.log('All movement animations stopped');
     }
     
     /**
@@ -71,6 +85,13 @@ class MovementSystem {
 
         // Animation function
         const animate = () => {
+            // Check if simulation is still running
+            if (window.app && window.app.worldSimulator && !window.app.worldSimulator.simulationRunning) {
+                console.log(`Animation cancelled for ${agentId} - simulation stopped`);
+                this.activeAnimations.delete(agentId);
+                return;
+            }
+            
             const elapsed = (Date.now() - startTime) / 1000;
             const progress = Math.min(elapsed / duration, 1);
             
@@ -91,8 +112,10 @@ class MovementSystem {
             }
             
             if (progress < 1) {
-                requestAnimationFrame(animate);
+                const animId = requestAnimationFrame(animate);
+                this.activeAnimations.set(agentId, animId);
             } else {
+                this.activeAnimations.delete(agentId);
                 // Movement completed
                 this.agentManager.updateAgentState(agentId, {
                     currentAction: 'idle',
@@ -153,6 +176,13 @@ class MovementSystem {
         
         // Animation function
         const animate = () => {
+            // Check if simulation is still running
+            if (window.app && window.app.worldSimulator && !window.app.worldSimulator.simulationRunning) {
+                console.log(`Animation cancelled for ${agentId} - simulation stopped`);
+                this.activeAnimations.delete(agentId);
+                return;
+            }
+            
             const elapsed = (Date.now() - startTime) / 1000;
             const progress = Math.min(elapsed / duration, 1);
             
@@ -169,8 +199,10 @@ class MovementSystem {
             }
             
             if (progress < 1) {
-                requestAnimationFrame(animate);
+                const animId = requestAnimationFrame(animate);
+                this.activeAnimations.set(agentId, animId);
             } else {
+                this.activeAnimations.delete(agentId);
                 // Movement completed, report to backend
                 this.reportMovementCompletion(agentId, targetPosition);
             }
