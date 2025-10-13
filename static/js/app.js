@@ -6,6 +6,7 @@ class AIAgentsApp {
         this.sceneManager = null;
         this.worldSimulator = null;
         this.chatManager = null;
+        this.personalityEditor = null;
         this.initialized = false;
     }
 
@@ -29,6 +30,10 @@ class AIAgentsApp {
             if (!this.chatManager.initialize()) {
                 throw new Error('Failed to initialize chat manager');
             }
+            
+            // Initialize personality editor
+            this.personalityEditor = new PersonalityEditor();
+            await this.personalityEditor.initialize();
             
             this.initialized = true;
             console.log('AI Agents Simulation initialized successfully!');

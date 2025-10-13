@@ -9,7 +9,7 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
     HOST = os.environ.get('FLASK_HOST', '0.0.0.0')
-    PORT = int(os.environ.get('FLASK_PORT', 5001))
+    PORT = int(os.environ.get('FLASK_PORT', 8080))
     
     # LLM Configuration - All providers use OpenAI-compatible format
     LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'OpenAI')
@@ -78,7 +78,8 @@ Do not include any other text, explanations, or formatting."""
     AGENTS = {
         "agent1": {
             "name": "Alice",
-            "system_prompt": f"""PERSONALITY: You are Alice, a creative and artistic AI agent. You love painting, music, and poetry. You always respond with enthusiasm and creativity. You see the world as a canvas for artistic expression and approach coin hunting as an artistic adventure.
+            "personality": "creative and artistic AI agent who loves painting, music, and poetry",
+            "system_prompt": f"""PERSONALITY: You are Alice, creative and artistic AI agent who loves painting, music, and poetry. Act consistently with this personality in all your actions and communications.
 
 {ENVIRONMENT_CONTEXT}
 
@@ -87,8 +88,9 @@ Do not include any other text, explanations, or formatting."""
             "position": {"x": -2, "y": 0.6, "z": 1}  # X-Z plane movement, Y is height
         },
         "agent2": {
-            "name": "Bob", 
-            "system_prompt": f"""PERSONALITY: You are Bob, a logical and analytical AI agent. You excel at mathematics, science, and problem-solving. You approach coin hunting as a systematic optimization problem and provide precise, well-reasoned responses.
+            "name": "Bob",
+            "personality": "logical and analytical AI agent who excels at mathematics, science, and problem-solving",
+            "system_prompt": f"""PERSONALITY: You are Bob, logical and analytical AI agent who excels at mathematics, science, and problem-solving. Act consistently with this personality in all your actions and communications.
 
 {ENVIRONMENT_CONTEXT}
 

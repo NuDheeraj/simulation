@@ -5,6 +5,7 @@ class AgentManager {
     constructor() {
         this.agents = new Map(); // Agent bodies in the world
         this.agentSpheres = new Map(); // 3D visual representations
+        this.agentLabels = new Map(); // Name labels above agents
     }
 
     /**
@@ -79,6 +80,9 @@ class AgentManager {
             // Create floating chat bubble
             chatBubbleManager.createFloatingChat(agentId, agent);
             
+            // Create name label above agent
+            this.createNameLabel(agentId, agent, capsule, scene);
+            
             // Store reference
             this.agentSpheres.set(agentId, capsule);
             console.log(`Stored sphere reference for ${agentId}`);
@@ -121,6 +125,71 @@ class AgentManager {
         
         console.log(`Created visibility sphere for ${agentId} with radius 1`);
     }
+    
+    /**
+     * Create name label above agent
+     */
+    createNameLabel(agentId, agent, capsule, scene) {
+        // Create a plane for the text
+        const plane = BABYLON.MeshBuilder.CreatePlane(`${agentId}_label`, {
+            width: 1.5,
+            height: 0.4
+        }, scene);
+        
+        // Position above the agent capsule
+        plane.position = new BABYLON.Vector3(0, 1.0, 0); // 1.0 units above capsule center
+        plane.parent = capsule; // Attach to capsule so it follows the agent
+        plane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL; // Always face camera
+        plane.isPickable = false; // Don't interfere with clicks
+        
+        // Create dynamic texture for text
+        const texture = new BABYLON.DynamicTexture(`${agentId}_label_texture`, {
+            width: 512,
+            height: 128
+        }, scene);
+        
+        const material = new BABYLON.StandardMaterial(`${agentId}_label_material`, scene);
+        material.diffuseTexture = texture;
+        material.emissiveTexture = texture; // Make it glow
+        material.opacityTexture = texture;
+        material.backFaceCulling = false;
+        plane.material = material;
+        
+        // Draw text on texture
+        const ctx = texture.getContext();
+        const font = "bold 48px Arial";
+        texture.drawText(agent.name, null, null, font, "#FFFFFF", "#00000088", true);
+        
+        // Store reference
+        this.agentLabels.set(agentId, { plane, texture, agent });
+        
+        console.log(`Created name label for ${agentId}: ${agent.name}`);
+    }
+    
+    /**
+     * Update agent name label (e.g., with coin count)
+     */
+    updateAgentLabel(agentId) {
+        const labelData = this.agentLabels.get(agentId);
+        const agent = this.agents.get(agentId);
+        
+        if (!labelData || !agent) {
+            return;
+        }
+        
+        const { texture } = labelData;
+        
+        // Build label text
+        let labelText = agent.name;
+        if (agent.coinsCollected > 0) {
+            labelText += ` 🪙${agent.coinsCollected}`;
+        }
+        
+        // Clear and redraw text
+        texture.clear();
+        const font = "bold 48px Arial";
+        texture.drawText(labelText, null, null, font, "#FFFFFF", "#00000088", true);
+    }
 
     /**
      * Handle agent click
@@ -153,6 +222,11 @@ class AgentManager {
         const agent = this.agents.get(agentId);
         if (agent) {
             Object.assign(agent, updates);
+            
+            // Update label if coins collected changed
+            if (updates.hasOwnProperty('coinsCollected')) {
+                this.updateAgentLabel(agentId);
+            }
         }
     }
 
@@ -168,6 +242,9 @@ class AgentManager {
             agent.currentUtterance = null;
             agent.utteranceEndTime = 0;
             agent.coinsCollected = 0; // Reset coin count
+            
+            // Update label to remove coin count
+            this.updateAgentLabel(agentId);
         }
     }
 
@@ -213,10 +290,23 @@ class AgentManager {
             this.visibilitySpheres.clear();
         }
         
+        // Remove all agent labels
+        if (this.agentLabels) {
+            this.agentLabels.forEach((labelData, agentId) => {
+                if (labelData.plane) {
+                    labelData.plane.dispose();
+                }
+                if (labelData.texture) {
+                    labelData.texture.dispose();
+                }
+            });
+            this.agentLabels.clear();
+        }
+        
         // Clear the agent spheres reference
         this.agentSpheres.clear();
         
-        console.log('Cleared all agent spheres and visibility spheres');
+        console.log('Cleared all agent spheres, visibility spheres, and labels');
     }
 
     /**

@@ -407,3 +407,53 @@ def update_llm_config():
     except Exception as e:
         logger.error(f"Error updating LLM config: {str(e)}")
         return jsonify({"success": False, "error": "Internal server error"}), 500
+
+@agent_bp.route('/<agent_id>/personality', methods=['PUT'])
+def update_agent_personality(agent_id):
+    """Update agent personality configuration"""
+    try:
+        if not agent_service:
+            logger.error("Agent service not initialized")
+            return jsonify({"error": "Service not initialized"}), 500
+        
+        # Get agent
+        agent = agent_service.get_agent(agent_id)
+        if not agent:
+            logger.error(f"Agent not found: {agent_id}")
+            return jsonify({"error": "Agent not found"}), 404
+        
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        # Update personality and generate system prompt
+        if 'personality' in data:
+            personality_text = data['personality'].strip()
+            if not personality_text:
+                return jsonify({"error": "Personality description cannot be empty"}), 400
+            
+            # Update personality
+            agent.personality = personality_text
+            
+            # Generate system prompt based on personality
+            agent.system_prompt = f"""PERSONALITY: You are {agent.name}, {personality_text}. Act consistently with this personality in all your actions and communications.
+
+{Config.ENVIRONMENT_CONTEXT}
+
+{Config.RESPONSE_FORMAT}"""
+            
+            logger.info(f"Updated {agent.name} personality to: {personality_text}")
+            logger.info(f"Generated new system prompt for {agent.name}")
+            
+            return jsonify({
+                "success": True,
+                "message": f"Updated personality for {agent.name}",
+                "agent": agent.to_dict()
+            })
+        else:
+            return jsonify({"error": "No personality data provided"}), 400
+        
+    except Exception as e:
+        logger.error(f"Error updating agent personality: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500

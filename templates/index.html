@@ -27,6 +27,11 @@
         • Click spheres to view agent conversations
     </div>
     
+    <!-- Agent Personality Cards (Header) -->
+    <div id="agentPersonalityCards">
+        <!-- Will be populated dynamically -->
+    </div>
+    
     <div id="simulationControls">
         <h3>Agent Simulation</h3>
         
@@ -115,6 +120,9 @@
     
     <!-- Services -->
     <script src="{{ url_for('static', filename='js/services/brain-service.js') }}"></script>
+    
+    <!-- Personality Editor -->
+    <script src="{{ url_for('static', filename='js/personality-editor.js') }}"></script>
     
     <!-- Application -->
     <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
