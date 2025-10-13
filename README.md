@@ -16,9 +16,9 @@ This project simulates intelligent agents (Alice and Bob) in a 3D world where th
 
 ### Backend (Flask)
 - **Framework**: Flask with CORS support
-- **Port**: 5001
+- **Port**: 8080
 - **Architecture**: Service-oriented with clear separation of concerns
-- **LLM Integration**: Llama 323B model for agent decisions
+- **LLM Integration**: OpenAI-compatible API for agent decisions
 
 ### Frontend (Babylon.js)
 - **3D Engine**: Babylon.js for 3D rendering
@@ -46,7 +46,7 @@ This project simulates intelligent agents (Alice and Bob) in a 3D world where th
 #### 3. **LLM Service** (`services/llm_service.py`)
 - **Purpose**: Handles AI decision-making using LLM models
 - **Key Features**:
-  - **Llama Integration**: Uses Llama 323B model
+  - **OpenAI-Compatible API**: Works with any OpenAI-compatible endpoint
   - **Structured Prompts**: Provides context about world, time, and actions
   - **Fallback System**: Mock responses when LLM unavailable
   - **Simulation Time**: Uses frontend time for consistent decision-making
@@ -175,7 +175,7 @@ The simulation uses an **event-driven decision system** for natural, responsive 
 
 #### **Action Types and Durations**
 - **Move**: 1-3 seconds (depends on distance)
-- **Say**: 2 seconds
+- **Say**: 3 seconds
 - **Idle**: 5 seconds (rest/think/observe)
 - **Observe**: Instant (triggers new decision)
 
@@ -189,7 +189,7 @@ The simulation uses an **event-driven decision system** for natural, responsive 
 2. **Memory Integration**:
    - Recent memories influence decisions
    - Past interactions shape behavior
-   - Maximum 10 memory items per agent
+   - Maximum 50 memory items per agent
 
 3. **LLM Decision Generation**:
    - **Structured Prompts**: Include position, observations, memories, world objects, and time
@@ -218,7 +218,7 @@ The simulation uses an **event-driven decision system** for natural, responsive 
 - **Origin**: Center of the world
 
 ### World Objects
-- **Purple Sphere**: Landmark at (5, 0.5, 3) that agents can investigate
+- **Purple Sphere**: Landmark at (0, 0, 0) that agents can investigate
 - **Collectible Coins**: 10 golden coins scattered around the world for agents to collect
 - **Ground Plane**: 10x10 unit gray surface
 - **Lighting**: Hemispheric + directional lighting for visibility
@@ -311,7 +311,7 @@ npm run dev
 ```
 
 ### Access
-- Open browser to `http://localhost:5001`
+- Open browser to `http://localhost:8080`
 - Wait for 3D scene to load
 - Click on agent capsules to start chatting
 - Use simulation controls to start autonomous behavior
@@ -381,7 +381,7 @@ Event Triggers:
 - **Idle Action**: Proper 5-second rest/think/observe periods instead of just waiting
 
 ### LLM Integration
-- **Llama Integration**: Uses Llama 323B model by default
+- **OpenAI-Compatible API**: Works with any OpenAI-compatible LLM endpoint
 - **Structured Prompts**: Agents receive comprehensive context about world, time, and actions
 - **Simulation Time**: Frontend provides consistent time to backend
 - **Fallback System**: Mock responses when LLM unavailable
@@ -394,33 +394,50 @@ Event Triggers:
 
 ## 🤖 LLM Integration
 
-The simulation uses Llama 323B model by default for agent decision-making! Uses the standard OpenAI Chat Completions API format for consistent behavior.
+The simulation uses the standard OpenAI Chat Completions API format, making it compatible with any OpenAI-compatible LLM endpoint (OpenAI, LM Studio, Ollama, vLLM, etc.).
 
 ### Default Configuration
-- **Model**: `llama-323b`
-- **Server**: `https://10.122.11.68:32076/enterpriseai/v1`
-- **API Key**: `18b3a699-cbb6-4b66-b9ae-5f15871539fa`
+The application comes with a default configuration that can be customized through environment variables.
 
 ### Run the Simulation
-Simply run the simulation - no setup required:
+Simply run the simulation:
 ```bash
 python app.py
 ```
 
-### Alternative Configuration
+### Custom Configuration
 You can override the default configuration with environment variables:
 
 ```bash
-# For OpenAI
-export LLM_PROVIDER='openai'
-export LLM_API_KEY='your-openai-key'
-export LLM_MODEL='gpt-3.5-turbo'
+# Configure your LLM provider
+export LLM_PROVIDER='openai'           # Provider name (for logging)
+export LLM_BASE_URL='http://your-server:port/v1'  # API endpoint
+export LLM_MODEL='your-model-name'     # Model name
+export LLM_API_KEY='your-api-key'      # API key (optional for local servers)
+```
 
-# For custom OpenAI-compatible server
-export LLM_PROVIDER='custom'
-export LLM_BASE_URL='http://your-server:port'
-export LLM_MODEL='your-model-name'
-export LLM_API_KEY='your-api-key'  # Optional
+### Examples
+
+**OpenAI:**
+```bash
+export LLM_PROVIDER='openai'
+export LLM_BASE_URL='https://api.openai.com/v1'
+export LLM_MODEL='gpt-4'
+export LLM_API_KEY='your-openai-key'
+```
+
+**LM Studio (local):**
+```bash
+export LLM_PROVIDER='lmstudio'
+export LLM_BASE_URL='http://127.0.0.1:1234/v1'
+export LLM_MODEL='local-model'
+```
+
+**Ollama:**
+```bash
+export LLM_PROVIDER='ollama'
+export LLM_BASE_URL='http://127.0.0.1:11434/v1'
+export LLM_MODEL='llama2'
 ```
 
 ## 🔮 Future Enhancements
@@ -430,7 +447,7 @@ export LLM_API_KEY='your-api-key'  # Optional
 - **Multi-user Support**: Multiple users observing the same simulation
 - **Advanced Memory**: Long-term memory and learning systems
 - **Custom Scenarios**: User-defined agent goals and challenges
-- **Multi-Model Support**: Support for additional LLM providers
+- **Enhanced AI Capabilities**: Multi-modal perception and reasoning
 
 ---
 

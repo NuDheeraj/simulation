@@ -6,7 +6,9 @@ from services.agent_service import AgentService
 from services.conversation_service import ConversationService
 from utils.logger import setup_logger, setup_agent_logger
 from utils.validators import validate_message, validate_agent_id
+from config import Config
 import time
+import os
 
 logger = setup_logger()
 
@@ -221,3 +223,179 @@ def brain_action_complete(agent_id):
     except Exception as e:
         logger.error(f"Error processing action completion: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
+
+@agent_bp.route('/llm/test', methods=['POST'])
+def test_llm_connection():
+    """Test LLM connection"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        url = data.get('url', '').strip()
+        model = data.get('model', '').strip()
+        api_key = data.get('apiKey', '').strip()
+        
+        if not url:
+            return jsonify({"error": "LLM URL is required"}), 400
+        
+        if not model:
+            return jsonify({"error": "Model name is required"}), 400
+        
+        # Test the connection
+        try:
+            from openai import OpenAI
+            
+            # Create test client
+            client = OpenAI(
+                base_url=url,
+                api_key=api_key if api_key else "test-key"
+            )
+            
+            # Make a simple test call
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": "test"}],
+                max_tokens=5,
+                timeout=10
+            )
+            
+            # If we got here, the connection works
+            logger.info(f"LLM connection test successful - URL: {url}, Model: {model}")
+            
+            return jsonify({
+                "success": True,
+                "message": "Connection successful",
+                "model": model
+            })
+            
+        except Exception as e:
+            logger.error(f"LLM connection test failed: {str(e)}")
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            }), 400
+        
+    except Exception as e:
+        logger.error(f"Error testing LLM connection: {str(e)}")
+        return jsonify({"success": False, "error": "Internal server error"}), 500
+
+@agent_bp.route('/llm/config', methods=['POST'])
+def update_llm_config():
+    """Update LLM configuration - tests connection first, then saves"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "No data provided"}), 400
+        
+        url = data.get('url', '').strip()
+        model = data.get('model', '').strip()
+        api_key = data.get('apiKey', '').strip()
+        
+        if not url:
+            return jsonify({"success": False, "error": "LLM URL is required"}), 400
+        
+        if not model:
+            return jsonify({"success": False, "error": "Model name is required"}), 400
+        
+        # Test the connection first
+        try:
+            from openai import OpenAI
+            
+            # Create test client with actual API key (or empty string for local models)
+            client = OpenAI(
+                base_url=url,
+                api_key=api_key if api_key else "not-needed-for-local"
+            )
+            
+            logger.info(f"Testing LLM connection - URL: {url}, Model: {model}")
+            
+            # Make a simple test call
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": "Say 'test' if you can read this."}],
+                max_tokens=10,
+                timeout=10
+            )
+            
+            # Verify we got a valid response structure
+            if not response or not response.choices or len(response.choices) == 0:
+                logger.error(f"LLM test returned invalid response structure")
+                return jsonify({
+                    "success": False,
+                    "error": "LLM returned invalid response. Check model name and configuration."
+                }), 400
+            
+            # Check if we got a message (content can be empty for some models, but the structure should exist)
+            if not hasattr(response.choices[0], 'message'):
+                logger.error(f"LLM test returned no message object")
+                return jsonify({
+                    "success": False,
+                    "error": "LLM returned invalid message format. Check model compatibility."
+                }), 400
+            
+            # Get content (can be empty string, special tokens, or actual text - all are valid)
+            content = response.choices[0].message.content or ""
+            
+            # If we got here, the connection works - now save it
+            logger.info(f"LLM connection test successful - URL: {url}, Model: {model}, Response: '{content[:50] if content else '(empty response)'}'")
+            logger.info(f"LLM is responding correctly - ready to use")
+            
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"LLM connection test failed: {error_msg}")
+            
+            # Provide more specific error messages
+            if "401" in error_msg or "authentication" in error_msg.lower() or "unauthorized" in error_msg.lower():
+                return jsonify({
+                    "success": False,
+                    "error": "Authentication failed. Please check your API key."
+                }), 400
+            elif "404" in error_msg or "not found" in error_msg.lower():
+                return jsonify({
+                    "success": False,
+                    "error": "Model not found. Please check the model name."
+                }), 400
+            elif "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+                return jsonify({
+                    "success": False,
+                    "error": "Connection timeout. LLM server not responding."
+                }), 400
+            elif "connection" in error_msg.lower():
+                return jsonify({
+                    "success": False,
+                    "error": f"Cannot connect to LLM server. Check URL: {error_msg}"
+                }), 400
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": f"Test failed: {error_msg}"
+                }), 400
+        
+        # Update environment variables (for current session)
+        os.environ['LLM_BASE_URL'] = url
+        os.environ['LLM_MODEL'] = model
+        if api_key:
+            os.environ['LLM_API_KEY'] = api_key
+        
+        # Update Config class attributes
+        Config.LLM_BASE_URL = url
+        Config.LLM_MODEL = model
+        if api_key:
+            Config.LLM_API_KEY = api_key
+        
+        logger.info(f"LLM configuration updated successfully - URL: {url}, Model: {model}")
+        
+        return jsonify({
+            "success": True,
+            "message": "Configuration saved successfully!",
+            "config": {
+                "url": url,
+                "model": model,
+                "hasApiKey": bool(api_key)
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating LLM config: {str(e)}")
+        return jsonify({"success": False, "error": "Internal server error"}), 500

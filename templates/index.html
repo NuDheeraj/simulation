@@ -29,6 +29,52 @@
     
     <div id="simulationControls">
         <h3>Agent Simulation</h3>
+        
+        <!-- LLM Configuration Section -->
+        <div class="llm-config-section">
+            <h4>🤖 LLM Configuration</h4>
+            <div class="config-input-group">
+                <label for="llmUrl">LLM URL:</label>
+                <input type="text" id="llmUrl" class="config-input" placeholder="http://127.0.0.1:1234/v1" title="OpenAI-compatible API endpoint">
+            </div>
+            <div class="config-input-group">
+                <label for="llmModel">Model:</label>
+                <input type="text" id="llmModel" class="config-input" placeholder="openai/gpt-oss-20b" title="Model name to use">
+            </div>
+            <div class="config-input-group">
+                <label for="llmApiKey">API Key:</label>
+                <input type="password" id="llmApiKey" class="config-input" placeholder="your-api-key-here" title="API key (optional for local models)">
+            </div>
+            <div class="config-button-group">
+                <button id="saveLlmConfig" class="config-btn save-btn">💾 Save & Test Config</button>
+                <button id="clearLlmConfig" class="config-btn clear-btn">🗑️ Clear</button>
+            </div>
+            <div class="config-status" id="llmConfigStatus"></div>
+            <div class="config-examples">
+                <details>
+                    <summary>📋 Examples</summary>
+                    <div class="example">
+                        <strong>LM Studio (Local):</strong><br>
+                        URL: <code>http://127.0.0.1:1234/v1</code><br>
+                        Model: <code>openai/gpt-oss-20b</code><br>
+                        API Key: <em>(leave empty)</em>
+                    </div>
+                    <div class="example">
+                        <strong>OpenAI:</strong><br>
+                        URL: <code>https://api.openai.com/v1</code><br>
+                        Model: <code>gpt-4</code> or <code>gpt-3.5-turbo</code><br>
+                        API Key: <code>sk-...</code>
+                    </div>
+                    <div class="example">
+                        <strong>Ollama (Local):</strong><br>
+                        URL: <code>http://127.0.0.1:11434/v1</code><br>
+                        Model: <code>llama2</code><br>
+                        API Key: <em>(leave empty)</em>
+                    </div>
+                </details>
+            </div>
+        </div>
+        
         <div class="control-buttons">
             <button id="startSimulation" class="sim-btn start-btn">Start Simulation</button>
             <button id="stopSimulation" class="sim-btn stop-btn">Stop Simulation</button>

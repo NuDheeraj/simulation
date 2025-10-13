@@ -259,14 +259,6 @@ class SensorySystem {
      * Initialize world objects
      */
     initializeWorldObjects() {
-        // Create the sphere object in the world
-        this.worldObjects.set('sphere', {
-            id: 'sphere',
-            name: 'sphere',
-            position: { x: 5, y: 0.5, z: 3 },
-            type: 'landmark'
-        });
-        
         // Generate 10 random coins
         this.generateCoins();
     }

@@ -233,12 +233,19 @@ body {
     transition: all 0.2s;
 }
 
+.sim-btn:disabled {
+    background: #555 !important;
+    color: #888 !important;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
 .start-btn {
     background: #28a745;
     color: white;
 }
 
-.start-btn:hover {
+.start-btn:hover:not(:disabled) {
     background: #218838;
 }
 
@@ -247,7 +254,7 @@ body {
     color: white;
 }
 
-.stop-btn:hover {
+.stop-btn:hover:not(:disabled) {
     background: #c82333;
 }
 
@@ -256,7 +263,7 @@ body {
     color: #212529;
 }
 
-.reset-btn:hover {
+.reset-btn:hover:not(:disabled) {
     background: #e0a800;
 }
 
@@ -316,4 +323,188 @@ body {
 
 .agent-btn:hover {
     background: #5a6268;
+}
+
+/* LLM Configuration Section */
+.llm-config-section {
+    background: rgba(20, 20, 40, 0.6);
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    border: 1px solid rgba(100, 100, 150, 0.3);
+}
+
+.llm-config-section h4 {
+    margin: 0 0 10px 0;
+    color: #88f;
+    font-size: 13px;
+}
+
+.config-input-group {
+    margin-bottom: 8px;
+}
+
+.config-input-group label {
+    display: block;
+    color: #aaa;
+    font-size: 10px;
+    margin-bottom: 3px;
+}
+
+.config-input {
+    width: 100%;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: white;
+    font-size: 11px;
+    box-sizing: border-box;
+}
+
+.config-input:focus {
+    outline: none;
+    border-color: #88f;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.config-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.config-button-group {
+    display: flex;
+    gap: 5px;
+    margin-top: 8px;
+}
+
+.config-btn {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.config-btn.test-btn {
+    background: #48a;
+}
+
+.config-btn.test-btn:hover {
+    background: #5ab;
+}
+
+.config-btn.save-btn {
+    background: #4a5;
+}
+
+.config-btn.save-btn:hover {
+    background: #5b6;
+}
+
+.config-btn.clear-btn {
+    background: #a44;
+}
+
+.config-btn.clear-btn:hover {
+    background: #b55;
+}
+
+.config-btn:disabled {
+    background: #555;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.config-btn.validated {
+    background: #28a745 !important;
+    cursor: not-allowed;
+    opacity: 1 !important;
+}
+
+.config-btn.loading {
+    position: relative;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+.config-status {
+    margin-top: 8px;
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    text-align: center;
+}
+
+.config-status.success {
+    background: rgba(50, 200, 100, 0.2);
+    color: #5f5;
+    border: 1px solid rgba(50, 200, 100, 0.4);
+}
+
+.config-status.error {
+    background: rgba(200, 50, 50, 0.2);
+    color: #f55;
+    border: 1px solid rgba(200, 50, 50, 0.4);
+}
+
+.config-status.info {
+    background: rgba(100, 150, 255, 0.2);
+    color: #9cf;
+    border: 1px solid rgba(100, 150, 255, 0.4);
+    animation: pulse-info 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-info {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
+.config-examples {
+    margin-top: 10px;
+    font-size: 10px;
+}
+
+.config-examples summary {
+    cursor: pointer;
+    color: #88f;
+    padding: 4px;
+    user-select: none;
+}
+
+.config-examples summary:hover {
+    color: #aaf;
+}
+
+.config-examples .example {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 8px;
+    margin: 6px 0;
+    border-radius: 4px;
+    border-left: 3px solid #88f;
+}
+
+.config-examples .example strong {
+    color: #aaf;
+}
+
+.config-examples code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 4px;
+    border-radius: 2px;
+    color: #5f5;
+    font-family: monospace;
+    font-size: 9px;
+}
+
+.config-examples em {
+    color: #888;
 }

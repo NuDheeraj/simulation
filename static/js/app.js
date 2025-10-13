@@ -191,6 +191,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Setup simulation controls
     setupSimulationControls();
+    
+    // Setup LLM configuration
+    setupLLMConfiguration();
 });
 
 // Setup simulation control event listeners
@@ -269,6 +272,193 @@ function updateCoinStats() {
     if (coinStatsDiv && window.app && window.app.getWorldSimulator()) {
         const stats = window.app.getWorldSimulator().getCoinStats();
         coinStatsDiv.textContent = `Coins: ${stats.collected}/${stats.total} collected (${stats.remaining} remaining)`;
+    }
+}
+
+// Setup LLM configuration event listeners
+function setupLLMConfiguration() {
+    const saveBtn = document.getElementById('saveLlmConfig');
+    const clearBtn = document.getElementById('clearLlmConfig');
+    const urlInput = document.getElementById('llmUrl');
+    const modelInput = document.getElementById('llmModel');
+    const apiKeyInput = document.getElementById('llmApiKey');
+    const statusDiv = document.getElementById('llmConfigStatus');
+    
+    // Load current configuration from localStorage (values only, no validation check)
+    loadLLMConfigValues();
+    
+    // Always start with disabled simulation buttons on page load
+    updateSimulationButtonsState(false);
+    
+    // Re-enable save button if any input changes (config changed, needs re-validation)
+    const configInputs = [urlInput, modelInput, apiKeyInput];
+    configInputs.forEach(input => {
+        if (input) {
+            input.addEventListener('input', () => {
+                if (saveBtn && saveBtn.disabled && saveBtn.classList.contains('validated')) {
+                    saveBtn.disabled = false;
+                    saveBtn.classList.remove('validated', 'loading');
+                    saveBtn.textContent = '💾 Save & Test Config';
+                }
+            });
+        }
+    });
+    
+    // Save & Test LLM configuration
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+            const config = {
+                url: urlInput.value.trim(),
+                model: modelInput.value.trim(),
+                apiKey: apiKeyInput.value.trim()
+            };
+            
+            // Validate inputs
+            if (!config.url) {
+                showConfigStatus('error', '❌ LLM URL is required');
+                return;
+            }
+            
+            if (!config.model) {
+                showConfigStatus('error', '❌ Model name is required');
+                return;
+            }
+            
+            // Disable button and show spinner with immediate feedback
+            saveBtn.disabled = true;
+            saveBtn.classList.add('loading');
+            saveBtn.textContent = '⏳ Testing & Saving...';
+            showConfigStatus('info', '🔄 Testing connection to LLM...');
+            
+            // Set a timeout for the request (30 seconds)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000);
+            
+            try {
+                // Test and save in backend (backend will test first)
+                const response = await fetch('/api/agents/llm/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    // Save to localStorage (for convenience, but NOT for validation persistence)
+                    localStorage.setItem('llm_config', JSON.stringify(config));
+                    
+                    // Enable simulation buttons now that config is validated (this session only)
+                    updateSimulationButtonsState(true);
+                    
+                    // Remove loading state and show validated state (no need for status message - button shows it)
+                    saveBtn.classList.remove('loading');
+                    saveBtn.disabled = true;
+                    saveBtn.classList.add('validated');
+                    saveBtn.textContent = '✅ Validated';
+                } else {
+                    // Failed validation - re-enable button
+                    saveBtn.disabled = false;
+                    saveBtn.classList.remove('loading');
+                    saveBtn.textContent = '💾 Save & Test Config';
+                    showConfigStatus('error', `❌ ${result.error || 'Failed to save configuration'}`);
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                console.error('Error saving LLM config:', error);
+                
+                // Error occurred - re-enable button
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('loading');
+                saveBtn.textContent = '💾 Save & Test Config';
+                
+                if (error.name === 'AbortError') {
+                    showConfigStatus('error', '❌ Request timeout. LLM server not responding. Please check URL.');
+                } else if (error.message.includes('Failed to fetch')) {
+                    showConfigStatus('error', '❌ Cannot connect to server. Check if the LLM URL is correct.');
+                } else {
+                    showConfigStatus('error', `❌ Error: ${error.message || 'Network error'}`);
+                }
+            }
+        });
+    }
+    
+    // Clear LLM configuration
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear the LLM configuration?')) {
+                localStorage.removeItem('llm_config');
+                urlInput.value = '';
+                modelInput.value = '';
+                apiKeyInput.value = '';
+                showConfigStatus('success', '✅ Configuration cleared');
+                
+                // Disable simulation buttons when config is cleared
+                updateSimulationButtonsState(false);
+                
+                // Reset save button to initial state
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.classList.remove('validated', 'loading');
+                    saveBtn.textContent = '💾 Save & Test Config';
+                }
+            }
+        });
+    }
+    
+    function loadLLMConfigValues() {
+        try {
+            const saved = localStorage.getItem('llm_config');
+            if (saved) {
+                const config = JSON.parse(saved);
+                // Load values only for convenience (validation state is NOT persisted)
+                if (urlInput && config.url) urlInput.value = config.url;
+                if (modelInput && config.model) modelInput.value = config.model;
+                if (apiKeyInput && config.apiKey) apiKeyInput.value = config.apiKey;
+            }
+        } catch (error) {
+            console.error('Error loading LLM config values:', error);
+        }
+    }
+    
+    function updateSimulationButtonsState(isEnabled) {
+        const startBtn = document.getElementById('startSimulation');
+        const stopBtn = document.getElementById('stopSimulation');
+        
+        console.log('Updating simulation buttons state:', isEnabled);
+        console.log('Start button found:', !!startBtn, 'Stop button found:', !!stopBtn);
+        
+        // Only Start and Stop need LLM config - Reset doesn't need LLM
+        if (startBtn) {
+            startBtn.disabled = !isEnabled;
+            startBtn.title = isEnabled ? 'Start simulation' : 'First save and test LLM config';
+            console.log('Start button disabled:', startBtn.disabled);
+        }
+        if (stopBtn) {
+            stopBtn.disabled = !isEnabled;
+            stopBtn.title = isEnabled ? 'Stop simulation' : 'First save and test LLM config';
+            console.log('Stop button disabled:', stopBtn.disabled);
+        }
+    }
+    
+    function showConfigStatus(type, message, noClear = false) {
+        if (statusDiv) {
+            statusDiv.className = `config-status ${type}`;
+            statusDiv.textContent = message;
+            
+            // Clear status after 5 seconds (unless it's an 'info' loading message)
+            if (!noClear && type !== 'info') {
+                setTimeout(() => {
+                    statusDiv.className = 'config-status';
+                    statusDiv.textContent = '';
+                }, 5000);
+            }
+        }
     }
 }
 

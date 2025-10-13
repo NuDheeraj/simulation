@@ -59,33 +59,6 @@ class WorldSimulator {
      * Create world objects in the scene
      */
     createWorldObjects() {
-        const scene = this.sceneManager.getScene();
-        if (!scene) {
-            console.error('Scene not initialized');
-            return;
-        }
-        
-        // Create the sphere object
-        const sphere = BABYLON.MeshBuilder.CreateSphere("world_sphere", {
-            diameter: 1.0,
-            segments: 16
-        }, scene);
-        // Direct mapping: simulation X,Y,Z -> 3D X,Y,Z (Y is height, X-Z is movement plane)
-        sphere.position = new BABYLON.Vector3(0, 0, 0);
-        
-        // Create material for sphere
-        const sphereMaterial = new BABYLON.StandardMaterial("sphere_material", scene);
-        sphereMaterial.diffuseColor = new BABYLON.Color3(0.8, 0.4, 0.8); // Purple
-        sphereMaterial.emissiveColor = new BABYLON.Color3(0.2, 0.1, 0.2); // Slight glow
-        sphere.material = sphereMaterial;
-        
-        // Add a subtle rotation animation
-        scene.registerBeforeRender(() => {
-            sphere.rotation.y += 0.01;
-        });
-        
-        console.log('Created world sphere at (5, 0.5, 3)');
-        
         // Create coins
         this.createCoins();
     }

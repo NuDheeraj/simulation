@@ -43,7 +43,6 @@ class Config:
 🎯 GOAL & OBJECTIVES:
 - Primary goal: Collect all golden coins scattered around the world
 - There are 10 golden coins to find and collect
-- There's a purple sphere landmark at (0, 0, 0) that you can investigate
 - Coins are valuable and scattered throughout the world
 - You must explore systematically to find all coins
 
