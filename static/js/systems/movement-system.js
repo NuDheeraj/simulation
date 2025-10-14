@@ -21,6 +21,18 @@ class MovementSystem {
     }
     
     /**
+     * Stop movement animation for a specific agent
+     */
+    stopMovement(agentId) {
+        const animationId = this.activeAnimations.get(agentId);
+        if (animationId) {
+            cancelAnimationFrame(animationId);
+            this.activeAnimations.delete(agentId);
+            console.log(`Movement animation stopped for ${agentId}`);
+        }
+    }
+    
+    /**
      * Helper method to trigger decisions
      */
     triggerDecision(agentId, type, details = {}) {

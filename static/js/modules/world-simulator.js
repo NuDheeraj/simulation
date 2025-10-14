@@ -308,16 +308,36 @@ class WorldSimulator {
             position: agent.position
         });
         
-        // For observation triggers, only trigger if agent is idle
-        if (reason.includes('observation') && agent.currentAction !== 'idle') {
-            console.log(`⏭️ Skipping observation trigger for ${agentId} - not idle`);
-            return;
-        }
-        
         // Don't trigger if agent is already making a decision
         if (agent.isMakingDecision) {
             console.log(`⏭️ Agent ${agentId} is already making a decision, skipping trigger due to ${reason}`);
             return;
+        }
+        
+        // For observation triggers during active actions, only interrupt for objects (coins), not agents
+        if (reason.includes('observation') && agent.currentAction !== 'idle') {
+            // Only interrupt for new objects (coins) or objects leaving - not for agents
+            const isObjectObservation = details.observationType === 'new_objects' || 
+                                       details.observationType === 'objects_left';
+            
+            if (isObjectObservation) {
+                console.log(`🚨 Interesting object detected! Interrupting ${agent.currentAction} for ${agentId} to react to: ${reason}`);
+                
+                // Stop current action if it's a movement
+                if (agent.currentAction === 'move') {
+                    this.movementSystem.stopMovement(agentId);
+                }
+                
+                // Reset agent to idle so they can make a new decision
+                this.agentManager.updateAgentState(agentId, {
+                    currentAction: 'idle',
+                    goalTarget: null
+                });
+            } else {
+                // For agent observations, only trigger if idle
+                console.log(`⏭️ Skipping agent observation trigger for ${agentId} - currently busy with ${agent.currentAction}`);
+                return;
+            }
         }
         
         console.log(`✅ Agent ${agentId} triggered decision due to ${reason}:`, details);

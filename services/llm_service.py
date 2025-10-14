@@ -146,12 +146,82 @@ Past Observations (what I saw before):
         return prompt
     
     async def _call_llm_api(self, prompt: str, system_prompt: str = None) -> Dict[str, Any]:
-        """Call LLM API using OpenAI Chat Completions format"""
+        """Call LLM API using OpenAI Chat Completions format with function calling"""
         try:
             import asyncio
             
             # Use provided system prompt or fallback to default
             system_content = system_prompt or f"You are an AI agent. {self.config.ENVIRONMENT_CONTEXT}"
+            
+            # Define separate function schemas for each action type
+            tools = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "move_to",
+                        "description": "Move to a specific position in the world",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "x": {
+                                    "type": "number",
+                                    "description": "X coordinate (between -4 and 4)"
+                                },
+                                "z": {
+                                    "type": "number",
+                                    "description": "Z coordinate (between -4 and 4)"
+                                }
+                            },
+                            "required": ["x", "z"]
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "say_to",
+                        "description": "Say something to a nearby agent",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "agent": {
+                                    "type": "string",
+                                    "description": "Name of the agent to speak to (e.g., 'Alice', 'Bob')"
+                                },
+                                "utterance": {
+                                    "type": "string",
+                                    "description": "What to say (keep under 40 words)"
+                                }
+                            },
+                            "required": ["agent", "utterance"]
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "idle",
+                        "description": "Rest, think, and observe for 5 seconds",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {},
+                            "required": []
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "observe",
+                        "description": "Observe the environment and nearby agents",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {},
+                            "required": []
+                        }
+                    }
+                }
+            ]
             
             # Run the synchronous API call in a thread pool to make it async
             response = await asyncio.to_thread(
@@ -161,33 +231,100 @@ Past Observations (what I saw before):
                     {"role": "system", "content": system_content},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=200,
+                tools=tools,
+                tool_choice="required",  # Force the model to use tool calls
+                max_tokens=500,
                 temperature=0.7
             )
             
-            content = response.choices[0].message.content.strip()
-            logger.debug(f"📨 Raw LLM response: {content}")
+            message = response.choices[0].message
             
-            if not content:
-                logger.error("❌ Empty response from LLM")
+            # Check if the model used tool calls
+            if message.tool_calls and len(message.tool_calls) > 0:
+                tool_call = message.tool_calls[0]
+                function_name = tool_call.function.name
+                logger.debug(f"📨 Tool call: {function_name}({tool_call.function.arguments})")
+                
+                # Parse the function arguments
+                args = json.loads(tool_call.function.arguments)
+                
+                # Convert function call to standard decision format
+                decision = self._convert_function_to_decision(function_name, args)
+                
+                logger.info(f"✅ Successfully parsed tool call: {function_name}")
+                return decision
+            
+            # Fallback: Try parsing content as JSON (for backward compatibility)
+            elif message.content:
+                content = message.content.strip()
+                logger.debug(f"📨 Content response (no tool call): {content}")
+                
+                if not content:
+                    logger.error("❌ Empty response from LLM")
+                    return self._fallback_decision()
+                
+                # Clean up common LLM response formats
+                if content.startswith('```json'):
+                    content = content.replace('```json', '').replace('```', '').strip()
+                elif content.startswith('```'):
+                    content = content.replace('```', '').strip()
+                
+                # Clean up special tokens (e.g., <|channel|>final <|constrain|>JSON<|message|>)
+                import re
+                # Remove any <|...| > style tokens
+                content = re.sub(r'<\|[^|]+\|>[^{]*', '', content).strip()
+                
+                # Parse JSON
+                decision = json.loads(content)
+                logger.info(f"✅ Parsed decision from content (fallback mode)")
+                return decision
+            
+            else:
+                logger.error("❌ No tool call or content in response")
                 return self._fallback_decision()
-            
-            # Clean up common LLM response formats
-            if content.startswith('```json'):
-                content = content.replace('```json', '').replace('```', '').strip()
-            elif content.startswith('```'):
-                content = content.replace('```', '').strip()
-            
-            # Parse JSON - fail fast if invalid
-            decision = json.loads(content)
-            return decision
             
         except json.JSONDecodeError as e:
             logger.error(f"❌ JSON parse error: {e}")
-            logger.error(f"📄 Raw response was: '{content}'")
+            if 'content' in locals():
+                logger.error(f"📄 Raw response was: '{content}'")
+            if 'tool_call' in locals():
+                logger.error(f"📄 Tool call arguments: '{tool_call.function.arguments}'")
             return self._fallback_decision()
         except Exception as e:
             logger.error(f"❌ API error: {e}")
+            logger.error(f"📄 Error type: {type(e).__name__}")
+            import traceback
+            logger.debug(f"📄 Traceback: {traceback.format_exc()}")
+            return self._fallback_decision()
+    
+    def _convert_function_to_decision(self, function_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert function call to standard decision format"""
+        if function_name == "move_to":
+            return {
+                "action": "move",
+                "target": {"x": args["x"], "z": args["z"]},
+                "utterance": None
+            }
+        elif function_name == "say_to":
+            return {
+                "action": "say",
+                "target": {"agent": args["agent"]},
+                "utterance": args["utterance"]
+            }
+        elif function_name == "idle":
+            return {
+                "action": "idle",
+                "target": None,
+                "utterance": None
+            }
+        elif function_name == "observe":
+            return {
+                "action": "observe",
+                "target": None,
+                "utterance": None
+            }
+        else:
+            logger.warning(f"⚠️  Unknown function: {function_name}, defaulting to idle")
             return self._fallback_decision()
     
     def _mock_decision(self, agent_name: str, current_observations: List[str], position: Dict[str, float]) -> Dict[str, Any]:

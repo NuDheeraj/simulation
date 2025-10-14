@@ -9,6 +9,24 @@ class SensorySystem {
     }
 
     /**
+     * Round a number to 1 decimal place
+     */
+    round1(num) {
+        return Math.round(num * 10) / 10;
+    }
+
+    /**
+     * Round position object to 1 decimal place
+     */
+    roundPosition(pos) {
+        return {
+            x: this.round1(pos.x),
+            y: this.round1(pos.y),
+            z: this.round1(pos.z)
+        };
+    }
+
+    /**
      * Get sensory data for an agent (what they can perceive)
      */
     getSensoryData(agentId, worldSimulator = null) {
@@ -17,7 +35,7 @@ class SensorySystem {
 
         const sensoryData = {
             agentId: agentId,
-            position: { ...agent.position },
+            position: this.roundPosition(agent.position),
             nearbyAgents: this.getNearbyAgents(agentId),
             worldObjects: this.getVisibleObjects(agentId),
             currentAction: agent.currentAction,
@@ -154,8 +172,8 @@ class SensorySystem {
                 nearbyAgents.push({
                     id: otherId,
                     name: otherAgent.name,
-                    position: { ...otherAgent.position },
-                    distance: distance,
+                    position: this.roundPosition(otherAgent.position),
+                    distance: this.round1(distance),
                     currentAction: otherAgent.currentAction,
                     currentUtterance: otherAgent.currentUtterance
                 });
@@ -191,8 +209,8 @@ class SensorySystem {
                 visibleObjects.push({
                     id: objectId,
                     name: worldObject.name,
-                    position: { ...worldObject.position },
-                    distance: distance,
+                    position: this.roundPosition(worldObject.position),
+                    distance: this.round1(distance),
                     type: worldObject.type
                 });
             }
@@ -247,7 +265,7 @@ class SensorySystem {
                 uncollectedCoins.push({
                     id: objectId,
                     name: worldObject.name,
-                    position: { ...worldObject.position },
+                    position: this.roundPosition(worldObject.position),
                     type: worldObject.type
                 });
             }

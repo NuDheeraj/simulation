@@ -47,6 +47,7 @@ This project simulates intelligent agents (Alice and Bob) in a 3D world where th
 - **Purpose**: Handles AI decision-making using LLM models
 - **Key Features**:
   - **OpenAI-Compatible API**: Works with any OpenAI-compatible endpoint
+  - **Function Calling / Tool Calls**: Uses structured tool calls for reliable JSON responses
   - **Structured Prompts**: Provides context about world, time, and actions
   - **Fallback System**: Mock responses when LLM unavailable
   - **Simulation Time**: Uses frontend time for consistent decision-making
@@ -193,9 +194,11 @@ The simulation uses an **event-driven decision system** for natural, responsive 
    - When agents collect coins
 
 2. **Interesting Observation Events**:
-   - When agents see new agents enter their observation radius
-   - When agents see new world objects (coins, landmarks) enter their range
-   - When agents lose sight of previously visible agents or objects
+   - When agents see new world objects (coins, landmarks) enter their range - **interrupts current actions**
+   - When world objects leave their range - **interrupts current actions**
+   - When agents see new agents enter their observation radius - only triggers if idle
+   - When agents lose sight of other agents - only triggers if idle
+   - **Note**: Only object observations (coins, landmarks) interrupt ongoing actions. Agent-to-agent observations only trigger decisions when agents are idle to prevent constant interruptions
 
 3. **Initialization Events**:
    - When simulation starts, all agents immediately make their first decision
@@ -471,6 +474,7 @@ tail -f logs/agent_Bob_$(date +%Y%m%d).log
 
 ### LLM Integration
 - **OpenAI-Compatible API**: Works with any OpenAI-compatible LLM endpoint
+- **Function Calling / Tool Calls**: Uses structured tool calls to ensure valid JSON responses
 - **Structured Prompts**: Agents receive comprehensive context about world, time, and actions
 - **Simulation Time**: Frontend provides consistent time to backend
 - **Fallback System**: Mock responses when LLM unavailable
@@ -479,11 +483,19 @@ tail -f logs/agent_Bob_$(date +%Y%m%d).log
 - **Continuous Decisions**: Agents never get stuck, always making new decisions
 - **Action Completion**: Automatic triggers after each action finishes
 - **Observation Events**: Immediate response to environmental changes
+- **Smart Interruption System**: Objects (coins, landmarks) interrupt current actions, while agent observations only trigger when idle to prevent constant interruptions
 - **Memory Integration**: Past experiences influence future decisions
 
 ## 🤖 LLM Integration
 
-The simulation uses the standard OpenAI Chat Completions API format, making it compatible with any OpenAI-compatible LLM endpoint (OpenAI, LM Studio, Ollama, vLLM, etc.).
+The simulation uses the standard OpenAI Chat Completions API format with **function calling (tool calls)**, making it compatible with any OpenAI-compatible LLM endpoint that supports tool calls (OpenAI, LM Studio, Ollama, vLLM, etc.).
+
+### Function Calling Support
+The system uses OpenAI's function calling feature to ensure reliable, structured responses:
+- **Structured Output**: Agent decisions are returned as function calls, not plain text
+- **No JSON Parsing Errors**: The LLM is forced to return valid JSON matching the schema
+- **Better Reliability**: Eliminates issues with truncated or malformed JSON responses
+- **Backward Compatible**: Falls back to content parsing if tool calls aren't supported
 
 ### Default Configuration
 The application comes with a default configuration that can be customized through environment variables.
