@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Optional
 from models.agent import Agent
 from services.brain_coordination_service import BrainCoordinationService
 from utils.logger import setup_logger
+from utils.prompt_builder import PromptBuilder
 
 logger = setup_logger()
 
@@ -18,9 +19,31 @@ class AgentService:
         self._add_agents_to_brain_coordination()
     
     def _initialize_agents(self, agents_config: Dict[str, Dict[str, Any]]) -> None:
-        """Initialize agents from configuration"""
+        """Initialize agents from configuration with dynamically generated system prompts"""
+        # First pass: Create agents with enriched config (including system prompts)
         for agent_id, config in agents_config.items():
-            self.agents[agent_id] = Agent(agent_id, config)
+            # Create enriched config with dynamically generated system prompt
+            enriched_config = config.copy()
+            
+            # Gather info about other agents
+            other_agents_info = []
+            for other_id, other_config in agents_config.items():
+                if other_id != agent_id:
+                    other_agents_info.append({
+                        'name': other_config.get('name', 'Unknown'),
+                        'personality': other_config.get('personality', 'an AI agent')
+                    })
+            
+            # Generate system prompt using PromptBuilder
+            enriched_config['system_prompt'] = PromptBuilder.build_system_prompt(
+                agent_name=config.get('name', 'Unknown'),
+                personality=config.get('personality', 'an AI agent'),
+                other_agents=other_agents_info
+            )
+            
+            # Create agent with enriched config
+            self.agents[agent_id] = Agent(agent_id, enriched_config)
+            logger.info(f"Initialized {config.get('name', agent_id)} with dynamically generated system prompt")
     
     def _add_agents_to_brain_coordination(self) -> None:
         """Add all agent brains to the coordination service"""
@@ -44,11 +67,30 @@ class AgentService:
         return list(self.agents.keys())
     
     def add_agent(self, agent_id: str, config: Dict[str, Any]) -> bool:
-        """Add a new agent"""
+        """Add a new agent with dynamically generated system prompt"""
         if agent_id in self.agents:
             return False  # Agent already exists
         
-        self.agents[agent_id] = Agent(agent_id, config)
+        # Create enriched config with dynamically generated system prompt
+        enriched_config = config.copy()
+        
+        # Gather info about other agents
+        other_agents_info = []
+        for other_id, other_agent in self.agents.items():
+            other_agents_info.append({
+                'name': other_agent.name,
+                'personality': other_agent.personality
+            })
+        
+        # Generate system prompt using PromptBuilder
+        enriched_config['system_prompt'] = PromptBuilder.build_system_prompt(
+            agent_name=config.get('name', 'Unknown'),
+            personality=config.get('personality', 'an AI agent'),
+            other_agents=other_agents_info
+        )
+        
+        self.agents[agent_id] = Agent(agent_id, enriched_config)
+        logger.info(f"Added new agent {config.get('name', agent_id)} with dynamically generated system prompt")
         return True
     
     def remove_agent(self, agent_id: str) -> bool:

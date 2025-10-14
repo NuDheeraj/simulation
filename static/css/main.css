@@ -526,7 +526,7 @@ body {
     border: 2px solid rgba(100, 100, 150, 0.4);
     overflow: hidden;
     transition: all 0.3s ease;
-    max-width: 350px;
+    width: 380px;
 }
 
 .agent-personality-card.collapsed {
@@ -618,8 +618,9 @@ body {
 }
 
 .agent-card-content.expanded {
-    max-height: 600px;
+    max-height: 800px;
     padding: 0 15px 15px 15px;
+    overflow-y: auto;
 }
 
 .personality-field {
@@ -737,4 +738,140 @@ body {
     background: rgba(220, 53, 69, 0.2);
     color: #f55;
     border: 1px solid rgba(220, 53, 69, 0.4);
+}
+
+/* Conversation History Section */
+.conversation-section {
+    margin-top: 15px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.conversation-details {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0;
+}
+
+.conversation-details[open] {
+    border-color: rgba(136, 136, 255, 0.3);
+}
+
+.conversation-summary {
+    padding: 10px 12px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 12px;
+    color: #aaa;
+    font-weight: 500;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s;
+}
+
+.conversation-summary::-webkit-details-marker {
+    display: none;
+}
+
+.conversation-summary:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
+.refresh-conversation-btn {
+    background: rgba(40, 167, 69, 0.3);
+    border: 1px solid rgba(40, 167, 69, 0.5);
+    color: #5f5;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s;
+    margin-left: 8px;
+}
+
+.refresh-conversation-btn:hover {
+    background: rgba(40, 167, 69, 0.5);
+    transform: scale(1.05);
+}
+
+.conversation-content {
+    padding: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 0 0 6px 6px;
+}
+
+.conversation-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.conversation-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+}
+
+.conversation-content::-webkit-scrollbar-thumb {
+    background: rgba(136, 136, 255, 0.3);
+    border-radius: 3px;
+}
+
+.conversation-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(136, 136, 255, 0.5);
+}
+
+.conversation-loading,
+.conversation-error,
+.conversation-empty {
+    text-align: center;
+    padding: 20px 12px;
+    font-size: 11px;
+    color: #888;
+    font-style: italic;
+}
+
+.conversation-error {
+    color: #f55;
+}
+
+.conversation-empty {
+    color: #fa5;
+}
+
+.conversation-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.conversation-message {
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-left: 3px solid rgba(136, 136, 255, 0.5);
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.conversation-message.system {
+    border-left-color: rgba(255, 193, 7, 0.5);
+    background: rgba(255, 193, 7, 0.05);
+}
+
+.message-speaker {
+    font-weight: bold;
+    color: #88f;
+    margin-right: 6px;
+}
+
+.conversation-message.system .message-speaker {
+    color: #fa5;
+}
+
+.message-text {
+    color: #ddd;
 }

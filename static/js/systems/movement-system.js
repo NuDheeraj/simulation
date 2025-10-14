@@ -42,9 +42,9 @@ class MovementSystem {
     }
 
     /**
-     * Execute movement action - World owns the movement
+     * Execute movement action - FRONTEND ONLY (no backend calls)
      */
-    async executeMovement(agentId, target, brainService) {
+    async executeMovement(agentId, target) {
         const agent = this.agentManager.getAgent(agentId);
         const sphere = this.agentManager.agentSpheres.get(agentId);
         if (!agent || !sphere) {
@@ -78,13 +78,9 @@ class MovementSystem {
                 goalTarget: null
             });
             
-            // Report completion to brain
-            brainService.reportActionCompletion(agentId, 'move', {
-                final_position: { ...agent.position },
-                distance_traveled: 0
-            });
+            console.log(`✅ ${agent.name} completed movement (already at target)`);
             
-            // Trigger new decision after movement completion
+            // Trigger new decision after movement completion (no backend call)
             this.triggerDecision(agentId, 'action_completion', {
                 actionType: 'move',
                 final_position: { ...agent.position },
@@ -134,24 +130,14 @@ class MovementSystem {
                     goalTarget: null
                 });
                 
-                console.log(`Agent ${agentId} reached destination at (${agent.position.x}, ${agent.position.z})`);
+                console.log(`✅ ${agent.name} reached destination at (${agent.position.x}, ${agent.position.z})`);
                 
-            // Report completion to brain and then trigger new decision
-            console.log(`🚀 Movement completed for ${agentId}, reporting completion...`);
-            brainService.reportActionCompletion(agentId, 'move', {
-                final_position: { ...agent.position },
-                distance_traveled: distance
-            }).then(() => {
-                // Trigger new decision AFTER completion is reported
-                console.log(`✅ Completion reported for ${agentId}, triggering new decision...`);
+                // Trigger new decision immediately (no backend call needed)
                 this.triggerDecision(agentId, 'action_completion', {
                     actionType: 'move',
                     final_position: { ...agent.position },
                     distance_traveled: distance
                 });
-            }).catch(error => {
-                console.error(`❌ Failed to report completion for ${agentId}:`, error);
-            });
             }
         };
 

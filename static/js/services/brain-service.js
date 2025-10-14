@@ -1,5 +1,10 @@
 /**
  * Brain Service - Communicates with AI brains on the backend
+ * 
+ * ARCHITECTURE NOTE:
+ * This service handles ONLY the decision-making requests to the backend LLM.
+ * All action execution, completion tracking, and agent interactions happen
+ * entirely in the frontend for better performance and simpler architecture.
  */
 class BrainService {
     constructor() {
@@ -7,7 +12,7 @@ class BrainService {
     }
 
     /**
-     * Request a decision from an agent's brain
+     * Request a decision from an agent's brain (the ONLY backend call needed)
      */
     async requestDecision(agentId, sensoryData) {
         try {
@@ -31,35 +36,6 @@ class BrainService {
         } catch (error) {
             console.error(`Error requesting decision from brain ${agentId}:`, error);
             return null;
-        }
-    }
-
-    /**
-     * Report action completion to brain
-     */
-    async reportActionCompletion(agentId, actionType, result = null) {
-        try {
-            const response = await fetch(`${this.baseUrl}/${agentId}/brain/action-complete`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    action_type: actionType,
-                    result: result
-                })
-            });
-
-            if (response.ok) {
-                console.log(`Reported ${actionType} completion to brain ${agentId}`);
-                return true;
-            } else {
-                console.error(`Failed to report ${actionType} completion to brain ${agentId}`);
-                return false;
-            }
-        } catch (error) {
-            console.error(`Error reporting action completion to brain ${agentId}:`, error);
-            throw error;
         }
     }
 }

@@ -14,20 +14,10 @@ class ChatManager {
 
     /**
      * Initialize chat UI elements
+     * Note: Chat panel has been removed. This manager is kept for potential future use.
      */
     initialize() {
-        this.chatPanel = document.getElementById('chatPanel');
-        this.chatHistory = document.getElementById('chatHistory');
-        this.refreshButton = document.getElementById('refreshChat');
-        this.closeButton = document.getElementById('closeChat');
-        this.agentInfo = document.getElementById('agentInfo');
-
-        if (!this.chatPanel || !this.chatHistory || !this.refreshButton || !this.closeButton || !this.agentInfo) {
-            console.error('Chat UI elements not found');
-            return false;
-        }
-
-        this.setupEventListeners();
+        console.log('ChatManager: Chat panel has been removed, skipping initialization');
         return true;
     }
 

@@ -23,7 +23,8 @@ class AgentManager {
             currentUtterance: null,
             utteranceEndTime: 0,
             brainId: agentId, // Reference to brain service
-            coinsCollected: 0 // Track coins collected by this agent
+            coinsCollected: 0, // Track coins collected by this agent
+            receivedTexts: [] // Store received text messages locally
         });
     }
 
@@ -70,12 +71,6 @@ class AgentManager {
             
             // Create visibility sphere around agent
             this.createVisibilitySphere(agentId, agent, scene);
-            
-            // Add click event
-            capsule.actionManager = new BABYLON.ActionManager(scene);
-            capsule.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPickTrigger, () => {
-                this.onAgentClick(agentId);
-            }));
             
             // Create floating chat bubble
             chatBubbleManager.createFloatingChat(agentId, agent);
@@ -192,16 +187,6 @@ class AgentManager {
     }
 
     /**
-     * Handle agent click
-     */
-    onAgentClick(agentId) {
-        // This will be handled by the main application
-        if (window.app && window.app.onAgentClick) {
-            window.app.onAgentClick(agentId);
-        }
-    }
-
-    /**
      * Get agent by ID
      */
     getAgent(agentId) {
@@ -213,6 +198,18 @@ class AgentManager {
      */
     getAllAgents() {
         return this.agents;
+    }
+
+    /**
+     * Get agent ID by name
+     */
+    getAgentIdByName(name) {
+        for (const [agentId, agent] of this.agents) {
+            if (agent.name === name) {
+                return agentId;
+            }
+        }
+        return null;
     }
 
     /**
@@ -231,6 +228,36 @@ class AgentManager {
     }
 
     /**
+     * Add a received text message to agent's local state
+     */
+    addReceivedText(agentId, senderName, message) {
+        const agent = this.agents.get(agentId);
+        if (agent) {
+            agent.receivedTexts.push({
+                sender: senderName,
+                message: message,
+                timestamp: Date.now(),
+                read: false
+            });
+            console.log(`📨 Text added to ${agent.name}'s local state from ${senderName}`);
+        }
+    }
+
+    /**
+     * Get and clear received texts for an agent
+     */
+    getAndClearReceivedTexts(agentId) {
+        const agent = this.agents.get(agentId);
+        if (agent) {
+            const texts = agent.receivedTexts.filter(t => !t.read);
+            // Mark all as read
+            agent.receivedTexts.forEach(t => t.read = true);
+            return texts;
+        }
+        return [];
+    }
+
+    /**
      * Reset agent to initial state
      */
     resetAgent(agentId, initialPosition) {
@@ -242,6 +269,7 @@ class AgentManager {
             agent.currentUtterance = null;
             agent.utteranceEndTime = 0;
             agent.coinsCollected = 0; // Reset coin count
+            agent.receivedTexts = []; // Clear received texts
             
             // Update label to remove coin count
             this.updateAgentLabel(agentId);

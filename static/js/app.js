@@ -31,8 +31,8 @@ class AIAgentsApp {
                 throw new Error('Failed to initialize chat manager');
             }
             
-            // Initialize personality editor
-            this.personalityEditor = new PersonalityEditor();
+            // Initialize personality editor with world simulator reference
+            this.personalityEditor = new PersonalityEditor(this.worldSimulator);
             await this.personalityEditor.initialize();
             
             this.initialized = true;
@@ -42,19 +42,6 @@ class AIAgentsApp {
             console.error('Error initializing application:', error);
             this.showError('Failed to initialize the application. Please refresh the page.');
         }
-    }
-
-    /**
-     * Handle agent click
-     */
-    onAgentClick(agentId) {
-        if (!this.initialized) {
-            console.error('Application not initialized');
-            return;
-        }
-        
-        console.log('Agent clicked:', agentId);
-        this.chatManager.selectAgent(agentId);
     }
 
     /**

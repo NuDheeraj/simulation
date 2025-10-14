@@ -14,87 +14,70 @@ class Config:
     # LLM Configuration - All providers use OpenAI-compatible format
     LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'OpenAI')
     LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'http://127.0.0.1:1234/v1')
-    LLM_MODEL = os.environ.get('LLM_MODEL', 'openai/gpt-oss-20b')
+    LLM_MODEL = os.environ.get('LLM_MODEL', 'ibm/granite-4-h-tiny')
     LLM_API_KEY = os.environ.get('LLM_API_KEY', '18b3a699-cbb6-4b66-b9ae-5f15871539fa')
     
     # Shared Environment Context
     ENVIRONMENT_CONTEXT = """ENVIRONMENT CONTEXT:
-🌍 WORLD SPACE:
-- You exist in a continuous 3D world with a 10x10 unit ground plane
-- You move on the X-Z plane (horizontal movement), Y is fixed at 0.6 units height
-- World boundaries: X and Z coordinates range from -4 to +4 (8x8 unit playable area)
-- The world is continuous - you can move anywhere within these bounds
-- Ground is gray, agents appear as colored capsules (you're red/blue)
 
-👁️ SENSORY SYSTEM:
-- You can ONLY see other agents within 1.0 unit radius (visibility sphere)
-- You can ONLY see world objects (coins, landmarks) within 1.0 unit radius
+WORLD SPACE:
+- Continuous 3D world with 8x8 unit playable area
+- You move on the X-Z plane (horizontal), Y is fixed at 0.6 units height
+- World boundaries: X and Z coordinates range from -4 to +4
+- Ground is gray, agents appear as colored capsules
+
+SENSORY SYSTEM:
+- You can see other agents within 1.0 unit radius
+- You can see world objects (coins, landmarks) within 1.0 unit radius
 - You cannot see beyond this radius - you must explore to find things
-- When agents are nearby, you see their position, distance, current action, and speech
-- When world objects are nearby, you see their type, position, and distance
 
-🤝 COLLABORATION & COMMUNICATION:
-- You can communicate with other agents ONLY when they're within 1.0 unit radius
-- Speech is heard by all nearby agents (within 1.0 unit) simultaneously
-- You can collaborate to find coins and explore together
-- Other agents have different personalities and approaches to coin hunting
-- You can coordinate strategies and share information about coin locations
+COMMUNICATION:
+- You can text message other agents at any distance
+- Messages are private between you and the recipient
+- Communication can help with coordination
 
-🎯 GOAL & OBJECTIVES:
-- Primary goal: Collect all golden coins scattered around the world
-- There are 10 golden coins to find and collect
-- Coins are valuable and scattered throughout the world
-- You must explore systematically to find all coins
+GOAL:
+- Collect all 10 golden coins scattered around the world
+- Explore systematically to find all coins
 
-⚡ ACTION MECHANICS:
-- move: Move to target coordinates (x, z) - speed is 2 units per second
-  * Duration = distance / 2.0 seconds (e.g., 4 units = 2 seconds)
-  * You can move anywhere within world bounds (-4 to +4)
-- say: Speak to nearby agents (3 seconds duration)
-  * Only heard by agents within 1.0 unit radius
-  * Keep messages under 40 words for clarity
-- idle: Rest/think/observe (5 seconds duration)
-  * Use this to process information and plan next moves
-  * Good for when you need to think about strategy
+AVAILABLE ACTIONS:
+1. move(x, z) - Move to target coordinates
+   - Speed: 2 units per second
+   - World bounds: x and z from -4 to +4
 
-🧠 DECISION MAKING:
-- You make decisions continuously based on what you observe
-- You remember your past actions and observations
-- You can learn from your experiences and adapt your strategy
-- You should explore systematically to find all coins
-- You can work together with other agents when you meet them
+2. text(agent, message) - Send a text message to another agent
+   - Works at any distance
+   - Messages deliver instantly
+   - Keep under 40 words
+
+3. idle() - Rest and observe for 5 seconds
 
 CONSTRAINTS:
-- Keep utterances under 40 words
+- Text messages under 40 words
 - Stay within world boundaries (-4 to +4 for x and z)
-- You can only see/hear things within 1.0 unit radius"""
+- Vision limited to 1.0 unit radius"""
     
     # Response Format
     RESPONSE_FORMAT = """RESPONSE FORMAT: You MUST respond with ONLY valid JSON in this exact format:
-{"action": "move|say|idle", "target": {"x": number, "z": number} or {"agent": "Agent-Name"}, "utterance": "text or null"}
+{"action": "move|text|idle", "target": {"x": number, "z": number} or {"agent": "Alice"} or {"agent": "Bob"}, "utterance": "text message or null"}
+- For 'move' action: target must be {"x": number, "z": number}
+- For 'text' action: target must be {"agent": "AgentName"} and utterance is required
+- For 'idle' action: target and utterance should be null
 Do not include any other text, explanations, or formatting."""
     
     # Agent configuration (X-Z plane movement, Y is height)
+    # NOTE: system_prompt is now generated dynamically by PromptBuilder
+    # Keep only raw data here (name, personality, color, position)
     AGENTS = {
         "agent1": {
             "name": "Alice",
-            "personality": "creative and artistic AI agent who loves painting, music, and poetry",
-            "system_prompt": f"""PERSONALITY: You are Alice, creative and artistic AI agent who loves painting, music, and poetry. Act consistently with this personality in all your actions and communications.
-
-{ENVIRONMENT_CONTEXT}
-
-{RESPONSE_FORMAT}""",
+            "personality": "creative and artistic AI agent who loves painting, music, and poetry and enjoys collaborating and texting with others",
             "color": "red",
             "position": {"x": -2, "y": 0.6, "z": 1}  # X-Z plane movement, Y is height
         },
         "agent2": {
             "name": "Bob",
-            "personality": "logical and analytical AI agent who excels at mathematics, science, and problem-solving",
-            "system_prompt": f"""PERSONALITY: You are Bob, logical and analytical AI agent who excels at mathematics, science, and problem-solving. Act consistently with this personality in all your actions and communications.
-
-{ENVIRONMENT_CONTEXT}
-
-{RESPONSE_FORMAT}""",
+            "personality": "logical and analytical AI agent who excels at mathematics, science, and problem-solving and values efficient coordination",
             "color": "blue",
             "position": {"x": 2, "y": 0.6, "z": 1}  # X-Z plane movement, Y is height
         }

@@ -6,6 +6,7 @@ from services.agent_service import AgentService
 from services.conversation_service import ConversationService
 from utils.logger import setup_logger, setup_agent_logger
 from utils.validators import validate_message, validate_agent_id
+from utils.prompt_builder import PromptBuilder
 from config import Config
 import time
 import os
@@ -127,29 +128,6 @@ def reset_simulation():
         logger.error(f"Error resetting simulation: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
-@agent_bp.route('/<agent_id>/force-decision', methods=['POST'])
-def force_agent_decision(agent_id):
-    """Force an agent to make a decision immediately"""
-    try:
-        if not agent_service:
-            return jsonify({"error": "Service not initialized"}), 500
-        
-        if not agent_service.agent_exists(agent_id):
-            return jsonify({"error": "Agent not found"}), 404
-        
-        decision = agent_service.force_agent_decision(agent_id)
-        if decision:
-            logger.info(f"Forced decision for agent {agent_id}: {decision}")
-            return jsonify({"agent_id": agent_id, "decision": decision})
-        else:
-            return jsonify({"error": "Failed to force decision"}), 500
-        
-    except Exception as e:
-        logger.error(f"Error forcing agent decision: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
-
-
-
 @agent_bp.route('/<agent_id>/brain/decide', methods=['POST'])
 def brain_decide(agent_id):
     """Brain decision endpoint - receives sensory data and returns decision"""
@@ -189,47 +167,6 @@ def brain_decide(agent_id):
         
     except Exception as e:
         logger.error(f"Error in brain decision: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
-
-@agent_bp.route('/<agent_id>/brain/action-complete', methods=['POST'])
-def brain_action_complete(agent_id):
-    """Report action completion to brain"""
-    try:
-        # Get agent name for consistent logging
-        agent = agent_service.get_agent(agent_id)
-        agent_name = agent.name if agent else agent_id
-        
-        # Setup agent-specific logger
-        agent_logger = setup_agent_logger(agent_name)
-        
-        agent_logger.info(f"🏁 Action completion report for {agent_name}")
-        
-        if not agent_service:
-            logger.error("Service not initialized")
-            return jsonify({"error": "Service not initialized"}), 500
-        
-        if not agent_service.agent_exists(agent_id):
-            logger.error(f"Agent {agent_name} not found")
-            return jsonify({"error": "Agent not found"}), 404
-        
-        data = request.get_json()
-        if not data or 'action_type' not in data:
-            logger.error("Action type required")
-            return jsonify({"error": "Action type required"}), 400
-        
-        action_type = data['action_type']
-        result = data.get('result', {})
-        logger.debug(f"📋 Action completion data: {data}")
-        
-        # Get the brain coordination service and report action completion
-        brain_service = agent_service.get_brain_coordination_service()
-        brain_service.report_action_completion(agent_id, action_type, result.get('final_position'))
-        
-        agent_logger.info(f"Brain {agent_name} processed {action_type} completion")
-        return jsonify({"message": "Action completion processed", "agent_id": agent_id})
-        
-    except Exception as e:
-        logger.error(f"Error processing action completion: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
 @agent_bp.route('/llm/test', methods=['POST'])
@@ -394,6 +331,16 @@ def update_llm_config():
         
         logger.info(f"LLM configuration updated successfully - URL: {url}, Model: {model}")
         
+        # Update all existing agent LLM services to use the new configuration
+        if agent_service:
+            logger.info("Updating LLM configuration for all agents...")
+            agents = agent_service.get_all_agents()
+            for agent_id in agents:
+                agent = agent_service.get_agent(agent_id)
+                if agent:
+                    agent.update_llm_configuration()
+            logger.info(f"✅ Updated LLM configuration for {len(agents)} agents")
+        
         return jsonify({
             "success": True,
             "message": "Configuration saved successfully!",
@@ -436,12 +383,24 @@ def update_agent_personality(agent_id):
             # Update personality
             agent.personality = personality_text
             
-            # Generate system prompt based on personality
-            agent.system_prompt = f"""PERSONALITY: You are {agent.name}, {personality_text}. Act consistently with this personality in all your actions and communications.
-
-{Config.ENVIRONMENT_CONTEXT}
-
-{Config.RESPONSE_FORMAT}"""
+            # Gather info about other agents for prompt generation
+            other_agents_info = []
+            all_agents = agent_service.get_all_agents()
+            for other_agent_id, other_agent_data in all_agents.items():
+                if other_agent_id != agent_id:
+                    other_agent = agent_service.get_agent(other_agent_id)
+                    if other_agent:
+                        other_agents_info.append({
+                            'name': other_agent.name,
+                            'personality': other_agent.personality
+                        })
+            
+            # Generate system prompt using centralized PromptBuilder
+            agent.system_prompt = PromptBuilder.build_system_prompt(
+                agent_name=agent.name,
+                personality=personality_text,
+                other_agents=other_agents_info
+            )
             
             logger.info(f"Updated {agent.name} personality to: {personality_text}")
             logger.info(f"Generated new system prompt for {agent.name}")

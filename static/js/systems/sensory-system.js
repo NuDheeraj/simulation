@@ -33,6 +33,9 @@ class SensorySystem {
         const agent = this.agentManager.getAgent(agentId);
         if (!agent) return null;
 
+        // Get received texts from agent's LOCAL state
+        const receivedTexts = this.agentManager.getAndClearReceivedTexts(agentId);
+
         const sensoryData = {
             agentId: agentId,
             position: this.roundPosition(agent.position),
@@ -40,8 +43,8 @@ class SensorySystem {
             worldObjects: this.getVisibleObjects(agentId),
             currentAction: agent.currentAction,
             currentUtterance: agent.currentUtterance,
-            coinsCollected: agent.coinsCollected || 0, // Include coin count in sensory data
-            // Send simulation time (starts from 0, resets on reset)
+            coinsCollected: agent.coinsCollected || 0,
+            receivedTexts: receivedTexts, // Read from local state
             simulationTime: worldSimulator ? worldSimulator.getSimulationTime() : 0
         };
 

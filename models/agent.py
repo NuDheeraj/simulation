@@ -43,9 +43,11 @@ class Agent:
         self.decision_interval = 1.0  # seconds between decisions (faster decisions)
         self.current_utterance = None
         self.utterance_end_time = 0
-        
-        # Pending decision from AI (for frontend to execute)
-        self.pending_decision = None
+    
+    def update_llm_configuration(self):
+        """Update the LLM service configuration for this agent"""
+        self.logger.info(f"Updating LLM configuration for {self.name}")
+        self.llm_service.update_configuration()
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert agent to dictionary for API responses"""
@@ -116,7 +118,7 @@ class Agent:
             decision["action"] = "idle"
         
         # Validate action type
-        if decision["action"] not in ["move", "say", "idle", "observe"]:
+        if decision["action"] not in ["move", "text", "idle"]:
             decision["action"] = "idle"
         
         # Validate target for move action
@@ -141,13 +143,20 @@ class Agent:
                         decision["target"]["x"] = max(-4, min(4, decision["target"]["x"]))
                         decision["target"]["z"] = max(-4, min(4, decision["target"]["z"]))
         
-        # Validate utterance for say action
-        if decision["action"] == "say":
+        # Validate utterance for text action
+        if decision["action"] == "text":
             if not decision.get("utterance"):
                 decision["utterance"] = "Hello there!"
             # Truncate utterance if too long
             if len(decision["utterance"]) > 200:
                 decision["utterance"] = decision["utterance"][:197] + "..."
+            
+            # Validate target agent for text action
+            if "target" not in decision or not isinstance(decision["target"], dict) or "agent" not in decision["target"]:
+                # Default to the other agent if target is invalid
+                other_agent = "Bob" if self.name == "Alice" else "Alice"
+                decision["target"] = {"agent": other_agent}
+                self.logger.warning(f"Invalid text target, defaulting to {other_agent}")
         else:
             decision["utterance"] = None
         
@@ -187,9 +196,10 @@ class Agent:
         world_objects = sensory_data.get('worldObjects', [])
         current_action = sensory_data.get('currentAction', 'idle')
         
-        # Check if agent can make a decision
-        if not self.can_make_decision():
-            return {"action": current_action, "target": None, "utterance": None}
+        # NOTE: Removed backend cooldown check - frontend handles decision timing
+        # The frontend has proper guards (isMakingDecision flag) and intentional
+        # interruption logic for important events (received texts, coins detected).
+        # Backend cooldown was preventing legitimate interruptions.
         
         # Set decision in progress flag
         self._decision_in_progress = True
@@ -258,17 +268,9 @@ class Agent:
                 self.position = result['final_position'].copy()
             self.add_memory(f"Completed movement", "action")
             self.logger.info(f"Action completed: move to ({self.position['x']:.1f}, {self.position['z']:.1f})")
-        elif action_type == "say":
-            self.add_memory(f"Spoke: {result.get('message', '')}", "action")
-            self.logger.info(f"Action completed: say '{result.get('message', '')}'")
-        elif action_type == "observe":
-            # Process observation results
-            sensory_data = result.get('sensory_data', {})
-            observations = self._generate_observations_from_sensory_data(
-                sensory_data.get('nearbyAgents', []),
-                sensory_data.get('worldObjects', [])
-            )
-            for obs in observations:
-                self.add_memory(obs, "observation")
-            self.logger.info(f"Action completed: observe - {len(observations)} observations")
+        elif action_type == "text":
+            recipient = result.get('recipient', 'Unknown')
+            message = result.get('message', '')
+            self.add_memory(f"Texted {recipient}: {message}", "action")
+            self.logger.info(f"Action completed: text to {recipient} - '{message}'")
     

@@ -4,10 +4,11 @@
  */
 
 class PersonalityEditor {
-    constructor() {
+    constructor(worldSimulator = null) {
         this.agents = [];
         this.originalConfigs = new Map(); // Store original configs for reset
         this.API_BASE_URL = 'http://localhost:8080/api/agents';
+        this.worldSimulator = worldSimulator; // Store reference to world simulator
     }
 
     /**
@@ -18,6 +19,14 @@ class PersonalityEditor {
         await this.loadAgents();
         this.renderPersonalityCards();
         console.log('Personality Editor initialized successfully');
+    }
+
+    /**
+     * Set world simulator reference (for conversation history)
+     */
+    setWorldSimulator(worldSimulator) {
+        this.worldSimulator = worldSimulator;
+        console.log('World simulator reference updated in personality editor');
     }
 
     /**
@@ -132,6 +141,18 @@ Examples:
                 </div>
 
                 <div class="personality-status" style="display: none;"></div>
+
+                <div class="conversation-section">
+                    <details class="conversation-details">
+                        <summary class="conversation-summary">
+                            💬 Conversation History
+                            <button class="refresh-conversation-btn" data-action="refresh" title="Refresh conversation">🔄</button>
+                        </summary>
+                        <div class="conversation-content" data-conversation-content>
+                            <div class="conversation-loading">Loading conversation...</div>
+                        </div>
+                    </details>
+                </div>
             </div>
         `;
 
@@ -184,6 +205,22 @@ Examples:
             if (e.key === 'Enter' && e.ctrlKey) {
                 e.preventDefault();
                 this.savePersonality(agentId);
+            }
+        });
+
+        // Refresh conversation button
+        const refreshConversationBtn = card.querySelector('[data-action="refresh"]');
+        refreshConversationBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.refreshConversation(agentId);
+        });
+
+        // Load conversation when details are opened
+        const conversationDetails = card.querySelector('.conversation-details');
+        conversationDetails.addEventListener('toggle', (e) => {
+            if (conversationDetails.open) {
+                this.loadConversation(agentId);
             }
         });
     }
@@ -288,6 +325,72 @@ Examples:
     hideStatus(statusDiv) {
         if (!statusDiv) return;
         statusDiv.style.display = 'none';
+    }
+
+    /**
+     * Load conversation history for an agent (from frontend)
+     */
+    async loadConversation(agentId) {
+        const card = document.querySelector(`[data-agent-id="${agentId}"]`);
+        if (!card) return;
+
+        const conversationContent = card.querySelector('[data-conversation-content]');
+        if (!conversationContent) return;
+
+        try {
+            conversationContent.innerHTML = '<div class="conversation-loading">Loading conversation...</div>';
+
+            // Get conversation from frontend WorldSimulator instead of backend
+            if (!this.worldSimulator) {
+                throw new Error('World simulator not available');
+            }
+
+            const conversation = this.worldSimulator.getConversationHistory(agentId);
+            this.displayConversation(conversationContent, conversation);
+
+        } catch (error) {
+            console.error('Error loading conversation:', error);
+            conversationContent.innerHTML = '<div class="conversation-error">Failed to load conversation</div>';
+        }
+    }
+
+    /**
+     * Refresh conversation history for an agent
+     */
+    async refreshConversation(agentId) {
+        await this.loadConversation(agentId);
+    }
+
+    /**
+     * Display conversation messages in the card
+     */
+    displayConversation(container, conversation) {
+        if (!conversation || conversation.length === 0) {
+            container.innerHTML = '<div class="conversation-empty">No messages yet. Start the simulation to see agent conversations!</div>';
+            return;
+        }
+
+        let html = '<div class="conversation-messages">';
+        conversation.forEach(msg => {
+            const messageClass = msg.speaker ? 'conversation-message' : 'conversation-message system';
+            html += `
+                <div class="${messageClass}">
+                    <span class="message-speaker">${msg.speaker || 'System'}:</span>
+                    <span class="message-text">${this.escapeHtml(msg.message)}</span>
+                </div>
+            `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 

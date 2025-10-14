@@ -12,6 +12,7 @@ class WorldSimulator {
         this.simulationRunning = false;
         this.observationInterval = null;
         this.simulationStartTime = null; // Track when simulation started
+        this.conversationHistory = {}; // Store conversation history per agent
     }
 
     /**
@@ -176,6 +177,20 @@ class WorldSimulator {
      */
     async startSimulation() {
         try {
+            // Notify backend to activate brains
+            const response = await fetch('/api/agents/simulation/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (!response.ok) {
+                console.error('Failed to start simulation on backend');
+            } else {
+                console.log('Backend simulation started - brains activated');
+            }
+            
             this.simulationRunning = true;
             this.simulationStartTime = Date.now(); // Set simulation start time
             this.startBrainDecisionLoop();
@@ -314,6 +329,27 @@ class WorldSimulator {
             return;
         }
         
+        // RECEIVED TEXT - Always interrupt current action (interesting event!)
+        if (reason === 'received_text') {
+            if (agent.currentAction !== 'idle') {
+                console.log(`📨 Received text! Interrupting ${agent.currentAction} for ${agentId} to read message from ${details.sender}`);
+                
+                // Stop current action if it's a movement
+                if (agent.currentAction === 'move') {
+                    this.movementSystem.stopMovement(agentId);
+                }
+                
+                // Reset agent to idle so they can make a new decision
+                this.agentManager.updateAgentState(agentId, {
+                    currentAction: 'idle',
+                    goalTarget: null,
+                    currentUtterance: null
+                });
+            } else {
+                console.log(`📨 Received text from ${details.sender}! Agent ${agentId} is idle, triggering immediate decision`);
+            }
+        }
+        
         // For observation triggers during active actions, only interrupt for objects (coins), not agents
         if (reason.includes('observation') && agent.currentAction !== 'idle') {
             // Only interrupt for new objects (coins) or objects leaving - not for agents
@@ -406,7 +442,7 @@ class WorldSimulator {
         agent.lastDecisionTime = Date.now();
 
         try {
-            // Send sensory data to brain
+            // Send sensory data to brain (including received texts from local state)
             const sensoryData = this.sensorySystem.getSensoryData(agentId, this);
             console.log(`Requesting decision from brain ${agentId} with sensory data:`, sensoryData);
             const decision = await this.brainService.requestDecision(agentId, sensoryData);
@@ -447,11 +483,9 @@ class WorldSimulator {
         console.log(`🚀 ${agentId} executing ${decision.action} -> ${targetInfo}`);
 
         if (decision.action === 'move' && decision.target) {
-            await this.movementSystem.executeMovement(agentId, decision.target, this.brainService);
-        } else if (decision.action === 'say' && decision.utterance) {
-            await this.executeSpeech(agentId, decision.utterance);
-        } else if (decision.action === 'observe') {
-            await this.executeObservation(agentId);
+            await this.movementSystem.executeMovement(agentId, decision.target);
+        } else if (decision.action === 'text' && decision.utterance && decision.target) {
+            await this.executeText(agentId, decision.target.agent, decision.utterance);
         } else if (decision.action === 'idle') {
             // Agent chooses to rest/think/observe for 5 seconds
             await this.executeIdle(agentId);
@@ -459,7 +493,7 @@ class WorldSimulator {
     }
 
     /**
-     * Execute idle action (rest/think/observe for 5 seconds)
+     * Execute idle action (rest/think/observe for 5 seconds) - FRONTEND ONLY
      */
     async executeIdle(agentId) {
         const agent = this.agentManager.getAgent(agentId);
@@ -476,13 +510,9 @@ class WorldSimulator {
         // Wait for 5 seconds
         await new Promise(resolve => setTimeout(resolve, 5000));
 
-        // Report completion to brain
-        this.brainService.reportActionCompletion(agentId, 'idle', {
-            duration: 5000,
-            action: 'rest_think_observe'
-        });
+        console.log(`✅ ${agent.name} completed idle action`);
 
-        // Trigger new decision after idle completes
+        // Trigger new decision after idle completes (no backend call needed)
         this.triggerDecision(agentId, 'action_completion', {
             actionType: 'idle',
             duration: 5000
@@ -490,22 +520,49 @@ class WorldSimulator {
     }
 
     /**
-     * Execute speech action
+     * Execute text message action - FRONTEND ONLY (no backend call)
+     * Shows message for 3 seconds but delivers IMMEDIATELY (no wait)
      */
-    async executeSpeech(agentId, message) {
+    async executeText(agentId, recipientName, message) {
         const agent = this.agentManager.getAgent(agentId);
         if (!agent) return;
 
-        // Update agent state
+        console.log(`📱 ${agentId} texting ${recipientName}: "${message}"`);
+
+        // Track conversation in frontend
+        this.addToConversationHistory(agentId, agent.name, message);
+
+        // Update agent state - show message for 3 seconds
         this.agentManager.updateAgentState(agentId, {
-            currentUtterance: message,
+            currentUtterance: `📱 → ${recipientName}: ${message}`,
             utteranceEndTime: Date.now() + 3000 // 3 seconds
         });
 
-        // Show chat bubble
-        this.updateFloatingChatMessage(agentId, message);
+        // Show chat bubble indicating text being sent
+        this.updateFloatingChatMessage(agentId, `📱 → ${recipientName}: ${message}`);
         
-        // Speech duration (3 seconds)
+        // Find recipient agent ID (frontend-only lookup)
+        const recipientId = this.agentManager.getAgentIdByName(recipientName);
+        
+        if (!recipientId) {
+            console.error(`❌ Recipient not found: ${recipientName}`);
+            return;
+        }
+        
+        // DELIVER MESSAGE IMMEDIATELY (no wait!)
+        console.log(`✅ Text sent INSTANTLY from ${agent.name} to ${recipientName}`);
+        
+        // Add text to recipient's LOCAL state immediately
+        this.agentManager.addReceivedText(recipientId, agent.name, message);
+        console.log(`📨 Text delivered immediately to ${recipientName}'s inbox from ${agent.name}`);
+        
+        // Trigger immediate decision for recipient (they got a message!)
+        this.triggerAgentDecision(recipientId, 'received_text', {
+            sender: agent.name,
+            message: message
+        });
+        
+        // After 3 seconds: clear visual state and trigger sender's next decision
         setTimeout(() => {
             this.agentManager.updateAgentState(agentId, {
                 currentAction: 'idle',
@@ -513,44 +570,49 @@ class WorldSimulator {
                 utteranceEndTime: 0
             });
             
-            // Report completion to brain
-            this.brainService.reportActionCompletion(agentId, 'say', {
-                message: message,
-                duration: 3000
-            });
+            console.log(`💬 Message display cleared for ${agent.name}`);
             
-            // Trigger new decision after speech completion
-            this.triggerAgentDecision(agentId, 'action_completion: say', {
+            // Trigger new decision for sender after visual display ends
+            this.triggerAgentDecision(agentId, 'action_completion: text', {
                 message: message,
-                duration: 3000
+                recipient: recipientName
             });
-        }, 3000);
+        }, 3000); // Wait only for visual display, not for delivery!
     }
 
     /**
-     * Execute observation action
+     * Add a message to conversation history
      */
-    async executeObservation(agentId) {
-        const agent = this.agentManager.getAgent(agentId);
-        if (!agent) return;
+    addToConversationHistory(agentId, speaker, message) {
+        if (!this.conversationHistory[agentId]) {
+            this.conversationHistory[agentId] = [];
+        }
+        
+        this.conversationHistory[agentId].push({
+            speaker: speaker,
+            message: message,
+            timestamp: Date.now()
+        });
+        
+        console.log(`📝 Added to ${agentId} conversation history: ${speaker}: ${message}`);
+    }
 
-        // Observation is instant - just gather sensory data
-        const sensoryData = this.sensorySystem.getSensoryData(agentId, this);
-        
-        // Update agent state
-        this.agentManager.updateAgentState(agentId, {
-            currentAction: 'idle'
-        });
-        
-        // Report completion to brain with observation results
-        this.brainService.reportActionCompletion(agentId, 'observe', {
-            sensory_data: sensoryData
-        });
-        
-        // Trigger new decision after observation completion
-        this.triggerAgentDecision(agentId, 'action_completion: observe', {
-            sensory_data: sensoryData
-        });
+    /**
+     * Get conversation history for an agent
+     */
+    getConversationHistory(agentId) {
+        return this.conversationHistory[agentId] || [];
+    }
+
+    /**
+     * Clear conversation history for an agent (or all if no agentId provided)
+     */
+    clearConversationHistory(agentId = null) {
+        if (agentId) {
+            this.conversationHistory[agentId] = [];
+        } else {
+            this.conversationHistory = {};
+        }
     }
 
     /**
@@ -639,6 +701,10 @@ class WorldSimulator {
             // Reset coins
             this.resetCoins();
             console.log('✅ Coins reset');
+            
+            // Clear conversation history
+            this.clearConversationHistory();
+            console.log('✅ Conversation history cleared');
             
             // Update visual positions
             this.agentManager.updateVisualPositions();

@@ -99,9 +99,7 @@ This project simulates intelligent agents (Alice and Bob) in a 3D world where th
 - `POST /api/agents/{id}/reset` - Reset agent conversation
 
 #### Brain Coordination
-- `POST /api/agents/{id}/brain/decide` - Request decision from agent brain
-- `POST /api/agents/{id}/brain/action-complete` - Report action completion to brain
-- `GET /api/agents/brain/state` - Get brain coordination state
+- `POST /api/agents/{id}/brain/decide` - Request decision from agent brain (only backend call needed)
 
 ## 🎮 Frontend Components
 
@@ -141,7 +139,6 @@ static/js/
   - **Agent Creation**: Initialize agent bodies and properties
   - **3D Capsules**: Visual representation of agents
   - **State Management**: Track agent actions and properties
-  - **Click Interaction**: Agent selection for chatting
   - **Visual Updates**: Position and appearance synchronization
 
 #### 3. **World Simulator** (`static/js/modules/world-simulator.js`)
@@ -260,7 +257,6 @@ The simulation uses an **event-driven decision system** for natural, responsive 
 - **WASD**: Move camera forward/back/left/right
 - **Q/E**: Move camera up/down
 - **Mouse Wheel**: Zoom in/out
-- **Click Agents**: Open chat interface
 
 ### Simulation Controls
 - **Start Simulation**: Begin AI decision-making
@@ -367,8 +363,8 @@ npm run dev
 ### Access
 - Open browser to `http://localhost:8080`
 - Wait for 3D scene to load
-- Click on agent capsules to start chatting
 - Use simulation controls to start autonomous behavior
+- Watch agents interact and communicate in the 3D world
 
 ## 🔄 Data Flow
 
@@ -402,8 +398,8 @@ Event Triggers:
 ### Visual Feedback
 - **Floating Chat Bubbles**: Real-time speech visualization
 - **Smooth Animations**: Fluid movement between positions
-- **Interactive UI**: Click-to-chat with any agent
 - **3D World**: Immersive environment with collectible objects
+- **Agent Labels**: Display agent names and coin counts
 
 ## 🛠️ Technical Details
 

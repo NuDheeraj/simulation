@@ -43,6 +43,14 @@ class BrainCoordinationService:
             return
         
         self.brains_active = True
+        
+        # Log system prompt for each agent when simulation starts
+        for agent in self.agents.values():
+            agent.logger.info(f"🎬 SIMULATION STARTED - System Prompt for {agent.name}:")
+            agent.logger.info(f"--- SYSTEM PROMPT START ---")
+            agent.logger.info(agent.system_prompt)
+            agent.logger.info(f"--- SYSTEM PROMPT END ---")
+        
         logger.info("Agent brains activated - ready to process requests from world")
     
     def deactivate_brains(self) -> None:
@@ -58,8 +66,8 @@ class BrainCoordinationService:
                 "id": agent.id,
                 "name": agent.name,
                 "personality": agent.personality,
-                "recent_memories": agent.get_recent_memories(3),
-                "memory_count": len(agent.memory)
+                "action_memory_count": len(agent.action_memory),
+                "observation_memory_count": len(agent.observation_memory)
             }
         
         return {
@@ -67,56 +75,6 @@ class BrainCoordinationService:
             "brains_active": self.brains_active,
             "timestamp": time.time()
         }
-    
-    
-    def report_action_completion(self, agent_id: str, action_type: str, final_position: Dict[str, float] = None) -> None:
-        """Report that an agent has completed an action (called by frontend)"""
-        agent = self.get_agent_brain(agent_id)
-        if not agent:
-            return
-        
-        # Update agent position if provided
-        if final_position:
-            agent.position = final_position.copy()
-        
-        # Clear current action and allow new decisions
-        agent.current_action = "idle"
-        agent.goal_target = None
-        
-        # Clear utterance if it was a speech action
-        if action_type == "say":
-            agent.current_utterance = None
-            agent.utterance_end_time = 0
-        
-        # Clear pending decision
-        agent.pending_decision = None
-        
-        agent_name = agent.name if agent else agent_id
-        logger.info(f"✅ {agent_name} completed {action_type} action")
-    
-    def clear_pending_decision(self, agent_id: str) -> None:
-        """Clear a pending decision for an agent (called by frontend)"""
-        agent = self.get_agent_brain(agent_id)
-        if agent:
-            agent.pending_decision = None
-            logger.info(f"Cleared pending decision for {agent.name}")
-    
-    def force_agent_decision(self, agent_id: str) -> Optional[Dict[str, Any]]:
-        """Force an agent to make a decision immediately"""
-        agent = self.get_agent_brain(agent_id)
-        if not agent:
-            return None
-        
-        # Temporarily reduce decision interval
-        original_interval = agent.decision_interval
-        agent.decision_interval = 0.1
-        
-        decision = agent.make_decision(self.agents, self.world_objects)
-        
-        # Restore original interval
-        agent.decision_interval = original_interval
-        
-        return decision
     
     
     def reset_simulation(self) -> None:
@@ -143,7 +101,9 @@ class BrainCoordinationService:
             agent.observation_memory.clear()
             agent.conversation_history.clear()
             agent.last_decision_time = 0
-            agent.pending_decision = None
+            
+            # Log reset for this agent
+            agent.logger.info(f"🔄 Agent {agent.name} reset to initial state")
         
         
         logger.info("Simulation reset - agents returned to initial positions")

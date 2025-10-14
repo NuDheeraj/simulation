@@ -25,6 +25,17 @@ class LLMService:
         """Get the model name - all providers use OpenAI-compatible format"""
         return self.config.LLM_MODEL
     
+    def update_configuration(self):
+        """Reinitialize the LLM service with updated configuration from Config class"""
+        logger.info("🔄 Updating LLM service configuration...")
+        # Reload config from Config class (which should be updated)
+        self.config = Config()
+        self.llm_provider = self.config.LLM_PROVIDER.lower()
+        self.model_name = self._get_model_name()
+        # Reinitialize the client with new config
+        self._initialize_client()
+        logger.info(f"✅ LLM service configuration updated - Model: {self.model_name}, URL: {self.config.LLM_BASE_URL}")
+    
     def _initialize_client(self):
         """Initialize LLM client - all providers use OpenAI-compatible format"""
         try:
@@ -117,28 +128,65 @@ class LLMService:
                                action_memories: List[str], observation_memories: List[str]) -> str:
         """Create the decision prompt for the LLM with simplified memory structure"""
         
-        # Format current observations (what agent sees right now)
-        obs_text = "\n".join([f"- {obs}" for obs in current_observations]) if current_observations else "- No specific observations"
+        # Extract sensory data to separate conversations from raw observations
+        sensory_data = self._current_sensory_data if hasattr(self, '_current_sensory_data') else {}
+        
+        # Extract and format CURRENT conversations (incoming messages)
+        received_texts = sensory_data.get('receivedTexts', [])
+        current_conversation = ""
+        if received_texts:
+            current_conversation = "\n".join([
+                f"- {text['sender']}: \"{text['message']}\""
+                for text in received_texts
+            ])
+        else:
+            current_conversation = "- No new messages"
+        
+        # Format current observations (what agent sees right now - WITHOUT conversation data)
+        # Remove conversation data from raw sensory display
+        clean_sensory = {k: v for k, v in sensory_data.items() if k not in ['receivedTexts', 'simulationTime']}
+        obs_text = f"- Raw sensory data: {clean_sensory}" if current_observations else "- No specific observations"
         
         # Format action memories (raw LLM decisions) - show all stored memories
         action_mem_text = "\n".join([f"- Time {mem['simulation_time']}s: {mem['decision']}" for mem in action_memories]) if action_memories else "- No recent actions"
         
         # Format observation memories (raw sensory data) - show all stored memories
-        obs_mem_text = "\n".join([f"- Time {mem.get('simulationTime', 0)}s: {mem}" for mem in observation_memories]) if observation_memories else "- No recent observations"
+        # Also extract past conversations from observation memories
+        past_conversations = []
+        obs_mem_text_parts = []
+        
+        for mem in observation_memories:
+            time_s = mem.get('simulationTime', 0)
+            # Extract past received texts from memory
+            if 'receivedTexts' in mem and mem['receivedTexts']:
+                for text in mem['receivedTexts']:
+                    past_conversations.append(f"- Time {time_s}s: {text['sender']}: \"{text['message']}\"")
+            # Store clean observation (without receivedTexts) for memory
+            clean_mem = {k: v for k, v in mem.items() if k != 'receivedTexts'}
+            obs_mem_text_parts.append(f"- Time {time_s}s: {clean_mem}")
+        
+        obs_mem_text = "\n".join(obs_mem_text_parts) if obs_mem_text_parts else "- No recent observations"
+        
+        # Format past conversations section
+        past_conversation_text = "\n".join(past_conversations) if past_conversations else "- No past messages"
         
         # Get simulation time from sensory data
-        simulation_time = 0
-        if hasattr(self, '_current_sensory_data') and self._current_sensory_data:
-            simulation_time = int(self._current_sensory_data.get('simulationTime', 0))
+        simulation_time = int(sensory_data.get('simulationTime', 0))
         
         prompt = f"""Current State:
 Position: ({position['x']:.1f}, {position['z']:.1f}). Simulation Time: {simulation_time}s
 
-Current Observations:
+Current Conversation (messages you just received):
+{current_conversation}
+
+Current Observations (what I see right now):
 {obs_text}
 
 Past Actions (what I decided to do):
 {action_mem_text}
+
+Past Conversations (message history):
+{past_conversation_text}
 
 Past Observations (what I saw before):
 {obs_mem_text}"""
@@ -158,7 +206,7 @@ Past Observations (what I saw before):
                 {
                     "type": "function",
                     "function": {
-                        "name": "move_to",
+                        "name": "move",
                         "description": "Move to a specific position in the world",
                         "parameters": {
                             "type": "object",
@@ -179,21 +227,21 @@ Past Observations (what I saw before):
                 {
                     "type": "function",
                     "function": {
-                        "name": "say_to",
-                        "description": "Say something to a nearby agent",
+                        "name": "text",
+                        "description": "Send a text message to another agent (works at any distance)",
                         "parameters": {
                             "type": "object",
                             "properties": {
                                 "agent": {
                                     "type": "string",
-                                    "description": "Name of the agent to speak to (e.g., 'Alice', 'Bob')"
+                                    "description": "Name of the agent to text (e.g., 'Alice', 'Bob')"
                                 },
-                                "utterance": {
+                                "message": {
                                     "type": "string",
-                                    "description": "What to say (keep under 40 words)"
+                                    "description": "The text message to send (keep under 40 words)"
                                 }
                             },
-                            "required": ["agent", "utterance"]
+                            "required": ["agent", "message"]
                         }
                     }
                 },
@@ -202,18 +250,6 @@ Past Observations (what I saw before):
                     "function": {
                         "name": "idle",
                         "description": "Rest, think, and observe for 5 seconds",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {},
-                            "required": []
-                        }
-                    }
-                },
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "observe",
-                        "description": "Observe the environment and nearby agents",
                         "parameters": {
                             "type": "object",
                             "properties": {},
@@ -232,7 +268,7 @@ Past Observations (what I saw before):
                     {"role": "user", "content": prompt}
                 ],
                 tools=tools,
-                tool_choice="required",  # Force the model to use tool calls
+                tool_choice="auto",  # Let the model decide when to use tools (compatible with more models)
                 max_tokens=500,
                 temperature=0.7
             )
@@ -299,27 +335,21 @@ Past Observations (what I saw before):
     
     def _convert_function_to_decision(self, function_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         """Convert function call to standard decision format"""
-        if function_name == "move_to":
+        if function_name == "move":
             return {
                 "action": "move",
                 "target": {"x": args["x"], "z": args["z"]},
                 "utterance": None
             }
-        elif function_name == "say_to":
+        elif function_name == "text":
             return {
-                "action": "say",
+                "action": "text",
                 "target": {"agent": args["agent"]},
-                "utterance": args["utterance"]
+                "utterance": args["message"]
             }
         elif function_name == "idle":
             return {
                 "action": "idle",
-                "target": None,
-                "utterance": None
-            }
-        elif function_name == "observe":
-            return {
-                "action": "observe",
                 "target": None,
                 "utterance": None
             }
@@ -340,9 +370,10 @@ Past Observations (what I saw before):
             }
         elif any("Agent-" in obs for obs in current_observations):
             if random.random() < 0.5:
+                other_agent = "Bob" if agent_name == "Alice" else "Alice"
                 return {
-                    "action": "say",
-                    "target": None,
+                    "action": "text",
+                    "target": {"agent": other_agent},
                     "utterance": "Hello there! How's your coin hunting going?"
                 }
             else:
