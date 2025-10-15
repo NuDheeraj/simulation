@@ -37,6 +37,9 @@ class SensorySystem {
         // Get and CLEAR received texts (read once strategy!)
         const newMessages = this.agentManager.getAndClearReceivedTexts(agentId);
 
+        // Check if all coins are collected
+        const allCoinsCollected = this.areAllCoinsCollected();
+
         // Sensory data - NO conversations here!
         const sensoryData = {
             agentId: agentId,
@@ -46,7 +49,8 @@ class SensorySystem {
             currentAction: agent.currentAction,
             currentUtterance: agent.currentUtterance,
             coinsCollected: agent.coinsCollected || 0,
-            simulationTime: worldSimulator ? worldSimulator.getSimulationTime() : 0
+            simulationTime: worldSimulator ? worldSimulator.getSimulationTime() : 0,
+            allCoinsCollected: allCoinsCollected
         };
 
         // Return both separately
@@ -276,6 +280,19 @@ class SensorySystem {
             }
         }
         return uncollectedCoins;
+    }
+
+    /**
+     * Check if all coins are collected
+     */
+    areAllCoinsCollected() {
+        for (const [objectId, worldObject] of this.worldObjects) {
+            if (worldObject.type === 'collectible' && !worldObject.collected) {
+                return false;
+            }
+        }
+        // Only return true if we have coins in the world
+        return this.worldObjects.size > 0;
     }
 
     /**

@@ -263,7 +263,17 @@ function updateCoinStats() {
     const coinStatsDiv = document.getElementById('coinStats');
     if (coinStatsDiv && window.app && window.app.getWorldSimulator()) {
         const stats = window.app.getWorldSimulator().getCoinStats();
-        coinStatsDiv.textContent = `Coins: ${stats.collected}/${stats.total} collected (${stats.remaining} remaining)`;
+        
+        // Check if all coins are collected
+        if (stats.allCollected) {
+            coinStatsDiv.innerHTML = '🎉 <strong>All Coins Collected!</strong> 🎉<br>Agents can now just chat!';
+            coinStatsDiv.style.color = '#4CAF50';
+            coinStatsDiv.style.fontWeight = 'bold';
+        } else {
+            coinStatsDiv.textContent = `Coins: ${stats.collected}/${stats.total} collected (${stats.remaining} remaining)`;
+            coinStatsDiv.style.color = ''; // Reset to default
+            coinStatsDiv.style.fontWeight = ''; // Reset to default
+        }
     }
 }
 

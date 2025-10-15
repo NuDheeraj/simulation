@@ -404,6 +404,13 @@ class WorldSimulator {
                 
                 console.log(`Agent ${agentId} collected coin ${collectedCoin.id} (total: ${coinCount})`);
                 
+                // Check if all coins are now collected
+                const allCoinsCollected = this.sensorySystem.areAllCoinsCollected();
+                if (allCoinsCollected) {
+                    console.log('🎉 ALL COINS COLLECTED! 🎉');
+                    this.onAllCoinsCollected();
+                }
+                
                 // Trigger new decision after coin collection
                 this.triggerAgentDecision(agentId, 'action_completion: collect_coin', {
                     coin_id: collectedCoin.id,
@@ -411,6 +418,28 @@ class WorldSimulator {
                 });
             }
         }
+    }
+    
+    /**
+     * Handle when all coins are collected
+     */
+    onAllCoinsCollected() {
+        // Update UI to show all coins collected message
+        const coinStatsDiv = document.getElementById('coinStats');
+        if (coinStatsDiv) {
+            coinStatsDiv.innerHTML = '🎉 <strong>All Coins Collected!</strong> 🎉<br>Agents can now just chat!';
+            coinStatsDiv.style.color = '#4CAF50';
+            coinStatsDiv.style.fontWeight = 'bold';
+        }
+        
+        // Trigger decisions for all agents to inform them
+        for (const [agentId, agent] of this.agentManager.getAllAgents()) {
+            this.triggerAgentDecision(agentId, 'all_coins_collected', {
+                message: 'All coins have been collected! You can now just chat and socialize.'
+            });
+        }
+        
+        console.log('✅ All agents have been notified that all coins are collected');
     }
 
     /**
@@ -779,11 +808,13 @@ class WorldSimulator {
         const uncollectedCoins = this.sensorySystem.getUncollectedCoins();
         const totalCoins = 10; // We always generate 10 coins
         const collectedCoins = totalCoins - uncollectedCoins.length;
+        const allCollected = this.sensorySystem.areAllCoinsCollected();
         
         return {
             total: totalCoins,
             collected: collectedCoins,
-            remaining: uncollectedCoins.length
+            remaining: uncollectedCoins.length,
+            allCollected: allCollected
         };
     }
 }

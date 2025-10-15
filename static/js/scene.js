@@ -118,6 +118,89 @@ class SceneManager {
         const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", this.scene);
         groundMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.3);
         ground.material = groundMaterial;
+        
+        // Create walls around the perimeter
+        this.createWalls();
+    }
+    
+    /**
+     * Create walls around the perimeter of the ground
+     */
+    createWalls() {
+        const wallHeight = 1;
+        const wallThickness = 0.2;
+        const groundSize = 10;
+        
+        // Create wall material with a nice texture
+        const wallMaterial = new BABYLON.StandardMaterial("wallMaterial", this.scene);
+        wallMaterial.diffuseColor = new BABYLON.Color3(0.6, 0.4, 0.3); // Brownish color
+        wallMaterial.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+        
+        // North wall (positive Z)
+        const northWall = BABYLON.MeshBuilder.CreateBox("northWall", {
+            width: groundSize + wallThickness * 2,
+            height: wallHeight,
+            depth: wallThickness
+        }, this.scene);
+        northWall.position = new BABYLON.Vector3(0, wallHeight / 2, groundSize / 2);
+        northWall.material = wallMaterial;
+        
+        // South wall (negative Z)
+        const southWall = BABYLON.MeshBuilder.CreateBox("southWall", {
+            width: groundSize + wallThickness * 2,
+            height: wallHeight,
+            depth: wallThickness
+        }, this.scene);
+        southWall.position = new BABYLON.Vector3(0, wallHeight / 2, -groundSize / 2);
+        southWall.material = wallMaterial;
+        
+        // East wall (positive X)
+        const eastWall = BABYLON.MeshBuilder.CreateBox("eastWall", {
+            width: wallThickness,
+            height: wallHeight,
+            depth: groundSize
+        }, this.scene);
+        eastWall.position = new BABYLON.Vector3(groundSize / 2, wallHeight / 2, 0);
+        eastWall.material = wallMaterial;
+        
+        // West wall (negative X)
+        const westWall = BABYLON.MeshBuilder.CreateBox("westWall", {
+            width: wallThickness,
+            height: wallHeight,
+            depth: groundSize
+        }, this.scene);
+        westWall.position = new BABYLON.Vector3(-groundSize / 2, wallHeight / 2, 0);
+        westWall.material = wallMaterial;
+        
+        // Add corner posts for visual interest
+        this.createCornerPosts(groundSize, wallHeight);
+    }
+    
+    /**
+     * Create decorative corner posts
+     */
+    createCornerPosts(groundSize, wallHeight) {
+        const postSize = 0.3;
+        const postMaterial = new BABYLON.StandardMaterial("postMaterial", this.scene);
+        postMaterial.diffuseColor = new BABYLON.Color3(0.4, 0.25, 0.15); // Darker brown
+        postMaterial.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+        
+        const corners = [
+            [groundSize / 2, groundSize / 2],   // Northeast
+            [groundSize / 2, -groundSize / 2],  // Southeast
+            [-groundSize / 2, groundSize / 2],  // Northwest
+            [-groundSize / 2, -groundSize / 2]  // Southwest
+        ];
+        
+        corners.forEach(([x, z], index) => {
+            const post = BABYLON.MeshBuilder.CreateBox(`cornerPost${index}`, {
+                width: postSize,
+                height: wallHeight + 0.2,
+                depth: postSize
+            }, this.scene);
+            post.position = new BABYLON.Vector3(x, (wallHeight + 0.2) / 2, z);
+            post.material = postMaterial;
+        });
     }
 
     /**

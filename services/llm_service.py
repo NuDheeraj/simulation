@@ -150,6 +150,9 @@ class LLMService:
         """Convert observation data to human-readable text (first-person)"""
         parts = []
         
+        # Check if all coins are collected
+        all_coins_collected = obs.get('allCoinsCollected', False)
+        
         # Position and coins collected
         pos = obs.get('position', {})
         coins = obs.get('coinsCollected', 0)
@@ -158,6 +161,10 @@ class LLMService:
                 parts.append(f"I am at position ({pos.get('x', 0):.1f}, {pos.get('z', 0):.1f}), have collected {coins} coin{'s' if coins != 1 else ''}")
             else:
                 parts.append(f"I was at position ({pos.get('x', 0):.1f}, {pos.get('z', 0):.1f}), had collected {coins} coin{'s' if coins != 1 else ''}")
+        
+        # Add all coins collected message
+        if all_coins_collected and is_current:
+            parts.append("🎉 ALL COINS HAVE BEEN COLLECTED! The coin collection goal is complete. You can now just chat and socialize with other agents.")
         
         # World objects (coins, landmarks)
         world_objects = obs.get('worldObjects', [])
@@ -172,8 +179,9 @@ class LLMService:
                     coin_locs = ", ".join([f"({c['position']['x']:.1f}, {c['position']['z']:.1f})" for c in coins_seen[:3]])
                     parts.append(f"I {verb} {len(coins_seen)} coins at: {coin_locs}")
         else:
-            verb = "see" if is_current else "saw"
-            parts.append(f"I {verb} no coins nearby")
+            if not all_coins_collected or not is_current:
+                verb = "see" if is_current else "saw"
+                parts.append(f"I {verb} no coins nearby")
         
         # Nearby agents
         nearby = obs.get('nearbyAgents', [])
@@ -281,13 +289,25 @@ Past Conversations (messages from OTHER agents):
             # Use provided system prompt or fallback to default
             system_content = system_prompt or f"You are an AI agent. {self.config.ENVIRONMENT_CONTEXT}"
             
+            # Check if all coins are collected from sensory data
+            sensory_data = self._current_sensory_data if hasattr(self, '_current_sensory_data') else {}
+            all_coins_collected = sensory_data.get('allCoinsCollected', False)
+            
+            # Adjust tool descriptions based on coin collection status
+            if all_coins_collected:
+                move_description = "Move to a specific position in the world to explore."
+                idle_description = "Rest, think, and observe for 5 seconds. Since all coins are collected, you can idle and chat."
+            else:
+                move_description = "Move to a specific position in the world. Use this to explore and collect coins."
+                idle_description = "Rest, think, and observe for 5 seconds"
+            
             # Define separate function schemas for each action type
             tools = [
                 {
                     "type": "function",
                     "function": {
                         "name": "move",
-                        "description": "Move to a specific position in the world. Use this to explore and collect coins.",
+                        "description": move_description,
                         "parameters": {
                             "type": "object",
                             "properties": {
@@ -329,7 +349,7 @@ Past Conversations (messages from OTHER agents):
                     "type": "function",
                     "function": {
                         "name": "idle",
-                        "description": "Rest, think, and observe for 5 seconds",
+                        "description": idle_description,
                         "parameters": {
                             "type": "object",
                             "properties": {},
