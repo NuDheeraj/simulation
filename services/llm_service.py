@@ -5,6 +5,7 @@ Uses OpenAI Chat Completions API format for all providers
 import os
 import json
 import time
+import asyncio
 from typing import Dict, Any, List, Optional
 from utils.logger import setup_logger
 from config import Config
@@ -57,10 +58,20 @@ class LLMService:
             }
             
             # Add SSL verification settings for HTTPS endpoints with self-signed certificates
+            # Also configure connection limits for parallel requests
+            import httpx
             if base_url and base_url.startswith('https://'):
-                import httpx
                 # Create a custom HTTP client that ignores SSL verification
-                http_client = httpx.Client(verify=False)
+                http_client = httpx.Client(
+                    verify=False,
+                    limits=httpx.Limits(max_connections=10, max_keepalive_connections=5)
+                )
+                client_kwargs['http_client'] = http_client
+            else:
+                # For HTTP, still set connection limits for parallel requests
+                http_client = httpx.Client(
+                    limits=httpx.Limits(max_connections=10, max_keepalive_connections=5)
+                )
                 client_kwargs['http_client'] = http_client
             
             # Remove None values to avoid issues
@@ -284,7 +295,6 @@ Past Conversations (messages from OTHER agents):
     async def _call_llm_api(self, prompt: str, system_prompt: str = None) -> Dict[str, Any]:
         """Call LLM API using OpenAI Chat Completions format with function calling"""
         try:
-            import asyncio
             
             # Use provided system prompt or fallback to default
             system_content = system_prompt or f"You are an AI agent. {self.config.ENVIRONMENT_CONTEXT}"
@@ -360,6 +370,8 @@ Past Conversations (messages from OTHER agents):
             ]
             
             # Run the synchronous API call in a thread pool to make it async
+            start_time = time.time()
+            
             response = await asyncio.to_thread(
                 self.client.chat.completions.create,
                 model=self.model_name,
@@ -370,8 +382,12 @@ Past Conversations (messages from OTHER agents):
                 tools=tools,
                 tool_choice="auto",  # Let the model decide when to use tools (compatible with more models)
                 max_tokens=500,
-                temperature=0.7
+                temperature=0.7,
+                timeout=30.0  # 30 second timeout for parallel requests
             )
+            
+            elapsed = time.time() - start_time
+            logger.info(f"⏱️  LLM API call took {elapsed:.2f}s")
             
             message = response.choices[0].message
             

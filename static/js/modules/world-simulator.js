@@ -264,10 +264,10 @@ class WorldSimulator {
     
     
     /**
-     * Trigger initial decisions for all agents when simulation starts
+     * Trigger initial decisions for all agents when simulation starts (in parallel!)
      */
     async triggerInitialDecisions() {
-        console.log('Triggering initial decisions for all agents...');
+        console.log('🚀 Triggering initial decisions for all agents IN PARALLEL...');
         
         const agents = Array.from(this.agentManager.getAllAgents().entries());
         console.log(`Found ${agents.length} agents to process`);
@@ -284,19 +284,20 @@ class WorldSimulator {
             }
         }
         
-        // Now trigger decisions for all agents
-        for (let i = 0; i < agents.length; i++) {
-            const [agentId, agent] = agents[i];
+        // Fire all initial decisions in parallel
+        const startTime = Date.now();
+        const decisionPromises = agents.map(([agentId, agent]) => {
             console.log(`✅ Triggering initial decision for agent ${agentId}`);
-            await this.requestDecisionFromBrain(agentId);
-            
-            // Small delay between agents to avoid overwhelming the system
-            if (i < agents.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-            }
-        }
+            return this.requestDecisionFromBrain(agentId);
+        });
         
-        console.log('Finished triggering initial decisions for all agents');
+        console.log(`📤 Fired ${decisionPromises.length} parallel initial decision requests`);
+        
+        // Wait for all to complete
+        await Promise.all(decisionPromises);
+        
+        const elapsed = (Date.now() - startTime) / 1000;
+        console.log(`✅ All ${agents.length} initial decisions completed in ${elapsed.toFixed(2)}s`);
     }
     
     
@@ -443,14 +444,28 @@ class WorldSimulator {
     }
 
     /**
-     * Request decisions from all agent brains
+     * Request decisions from all agent brains (in parallel!)
      */
     async requestDecisionsFromBrains() {
+        const decisionPromises = [];
+        
+        console.log('🚀 Starting parallel decision requests...');
+        const startTime = Date.now();
+        
         for (const [agentId, agent] of this.agentManager.getAllAgents()) {
             if (agent.currentAction === 'idle') {
-                await this.requestDecisionFromBrain(agentId);
+                // Don't await here - collect all promises and run them in parallel
+                decisionPromises.push(this.requestDecisionFromBrain(agentId));
             }
         }
+        
+        console.log(`📤 Fired ${decisionPromises.length} parallel requests`);
+        
+        // Wait for all decisions to complete in parallel
+        await Promise.all(decisionPromises);
+        
+        const elapsed = (Date.now() - startTime) / 1000;
+        console.log(`✅ All ${decisionPromises.length} decisions completed in ${elapsed.toFixed(2)}s`);
     }
 
     /**
@@ -470,6 +485,9 @@ class WorldSimulator {
         agent.isMakingDecision = true;
         agent.lastDecisionTime = Date.now();
 
+        const startTime = Date.now();
+        console.log(`⏱️  [${agent.name}] Starting decision request at ${new Date().toLocaleTimeString()}`);
+
         try {
             // Get sensory data and new messages separately (clean architecture!)
             const { sensoryData, newMessages } = this.sensorySystem.getSensoryData(agentId, this);
@@ -481,6 +499,9 @@ class WorldSimulator {
             }
             
             const decision = await this.brainService.requestDecision(agentId, sensoryData, newMessages);
+            
+            const elapsed = (Date.now() - startTime) / 1000;
+            console.log(`⏱️  [${agent.name}] Decision received in ${elapsed.toFixed(2)}s`);
             
             if (decision) {
                 console.log(`Brain of ${agentId} decided:`, decision);
