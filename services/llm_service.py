@@ -81,8 +81,11 @@ class LLMService:
     
     async def make_agent_decision(self, agent_id: str, agent_name: str, 
                            position: Dict[str, float], current_observations: List[str], 
-                           action_memories: List[str], observation_memories: List[str], 
-                           system_prompt: str = None, sensory_data: Dict[str, Any] = None, agent_logger = None) -> Dict[str, Any]:
+                           action_memories: List[str], observation_memories: List[str],
+                           conversation_history: List[Dict[str, Any]] = None,
+                           num_new_messages: int = 0,
+                           system_prompt: str = None, sensory_data: Dict[str, Any] = None, 
+                           agent_logger = None) -> Dict[str, Any]:
         """Make a decision for an agent using LLM"""
         
         # Use agent logger if provided, otherwise use main logger
@@ -95,7 +98,8 @@ class LLMService:
         # Create the prompt
         prompt = self._create_decision_prompt(
             agent_id, agent_name, position, 
-            current_observations, action_memories, observation_memories
+            current_observations, action_memories, observation_memories,
+            conversation_history, num_new_messages
         )
         
         # Log prompt summary for debugging (full prompt only in debug mode)
@@ -123,73 +127,149 @@ class LLMService:
             log.info(f"🎭 FALLBACK {agent_name}: {decision['action']} -> {decision.get('target', 'N/A')}")
             return decision
     
+    def _format_action_readable(self, action: Dict[str, Any]) -> str:
+        """Convert action decision to human-readable text (first-person)"""
+        action_type = action.get('action', 'unknown')
+        target = action.get('target')
+        utterance = action.get('utterance')
+        
+        if action_type == 'move':
+            if target and 'x' in target and 'z' in target:
+                return f"I moved to position ({target['x']:.1f}, {target['z']:.1f})"
+            return "I moved to a location"
+        elif action_type == 'text':
+            if target and 'agent' in target and utterance:
+                return f"I texted {target['agent']}: \"{utterance}\""
+            return "I sent a text message"
+        elif action_type == 'idle':
+            return "I rested and observed my surroundings"
+        else:
+            return f"I performed action: {action_type}"
+    
+    def _format_observation_readable(self, obs: Dict[str, Any], is_current: bool = False) -> str:
+        """Convert observation data to human-readable text (first-person)"""
+        parts = []
+        
+        # Position and coins collected
+        pos = obs.get('position', {})
+        coins = obs.get('coinsCollected', 0)
+        if pos:
+            if is_current:
+                parts.append(f"I am at position ({pos.get('x', 0):.1f}, {pos.get('z', 0):.1f}), have collected {coins} coin{'s' if coins != 1 else ''}")
+            else:
+                parts.append(f"I was at position ({pos.get('x', 0):.1f}, {pos.get('z', 0):.1f}), had collected {coins} coin{'s' if coins != 1 else ''}")
+        
+        # World objects (coins, landmarks)
+        world_objects = obs.get('worldObjects', [])
+        if world_objects:
+            coins_seen = [obj for obj in world_objects if obj.get('name') == 'coin']
+            if coins_seen:
+                verb = "see" if is_current else "saw"
+                if len(coins_seen) == 1:
+                    c = coins_seen[0]
+                    parts.append(f"I {verb} 1 coin at ({c['position']['x']:.1f}, {c['position']['z']:.1f}) distance {c['distance']:.1f}")
+                else:
+                    coin_locs = ", ".join([f"({c['position']['x']:.1f}, {c['position']['z']:.1f})" for c in coins_seen[:3]])
+                    parts.append(f"I {verb} {len(coins_seen)} coins at: {coin_locs}")
+        else:
+            verb = "see" if is_current else "saw"
+            parts.append(f"I {verb} no coins nearby")
+        
+        # Nearby agents
+        nearby = obs.get('nearbyAgents', [])
+        if nearby:
+            verb = "see" if is_current else "saw"
+            agent_names = ", ".join([a.get('name', 'unknown') for a in nearby])
+            parts.append(f"I {verb} agents: {agent_names}")
+        else:
+            verb = "see" if is_current else "saw"
+            parts.append(f"I {verb} no other agents")
+        
+        return "; ".join(parts) if parts else "No specific observations"
+    
     def _create_decision_prompt(self, agent_id: str, agent_name: str,
                                position: Dict[str, float], current_observations: List[str], 
-                               action_memories: List[str], observation_memories: List[str]) -> str:
-        """Create the decision prompt for the LLM with simplified memory structure"""
+                               action_memories: List[str], observation_memories: List[str],
+                               conversation_history: List[Dict[str, Any]] = None,
+                               num_new_messages: int = 0) -> str:
+        """Create the decision prompt for the LLM with human-readable format"""
         
-        # Extract sensory data to separate conversations from raw observations
+        # Extract sensory data
         sensory_data = self._current_sensory_data if hasattr(self, '_current_sensory_data') else {}
+        simulation_time = int(sensory_data.get('simulationTime', 0))
         
-        # Extract and format CURRENT conversations (incoming messages)
-        received_texts = sensory_data.get('receivedTexts', [])
+        # Split conversation_history into current (new) and past messages
+        conversation_history = conversation_history or []
+        
+        # Format CURRENT conversations (just received this moment) - last N messages in history
         current_conversation = ""
-        if received_texts:
+        if num_new_messages > 0 and len(conversation_history) >= num_new_messages:
+            new_messages = conversation_history[-num_new_messages:]
             current_conversation = "\n".join([
-                f"- {text['sender']}: \"{text['message']}\""
-                for text in received_texts
+                f"- {msg.get('speaker', 'Unknown')}: \"{msg.get('message', '')}\""
+                for msg in new_messages
             ])
         else:
             current_conversation = "- No new messages"
         
-        # Format current observations (what agent sees right now - WITHOUT conversation data)
-        # Remove conversation data from raw sensory display
-        clean_sensory = {k: v for k, v in sensory_data.items() if k not in ['receivedTexts', 'simulationTime']}
-        obs_text = f"- Raw sensory data: {clean_sensory}" if current_observations else "- No specific observations"
+        # Format current observations in human-readable format (present tense)
+        obs_text = self._format_observation_readable(sensory_data, is_current=True)
         
-        # Format action memories (raw LLM decisions) - show all stored memories
-        action_mem_text = "\n".join([f"- Time {mem['simulation_time']}s: {mem['decision']}" for mem in action_memories]) if action_memories else "- No recent actions"
+        # Format action memories in human-readable format
+        action_texts = []
+        for mem in action_memories:
+            time_s = mem.get('simulation_time', 0)
+            decision = mem.get('decision', {})
+            readable_action = self._format_action_readable(decision)
+            action_texts.append(f"- At time {time_s}s {readable_action}")
+        action_mem_text = "\n".join(action_texts) if action_texts else "- No recent actions"
         
-        # Format observation memories (raw sensory data) - show all stored memories
-        # Also extract past conversations from observation memories
-        past_conversations = []
-        obs_mem_text_parts = []
+        # Format past conversations (exclude the new messages we just showed above)
+        if num_new_messages > 0 and len(conversation_history) > num_new_messages:
+            # Exclude the last N messages (they're the new ones shown in current_conversation)
+            past_messages = [
+                f"- At time {msg['time']}s {msg['speaker']} said: \"{msg['message']}\""
+                for msg in conversation_history[:-num_new_messages]
+            ]
+            past_conversation_text = "\n".join(past_messages) if past_messages else "- No past messages"
+        elif num_new_messages == 0 and conversation_history:
+            # No new messages, show all history as past
+            past_messages = [
+                f"- At time {msg['time']}s {msg['speaker']} said: \"{msg['message']}\""
+                for msg in conversation_history
+            ]
+            past_conversation_text = "\n".join(past_messages)
+        else:
+            # Either no history or all history is new messages
+            past_conversation_text = "- No past messages"
         
+        # Format observation memories in human-readable format (simplified - no conversation extraction!)
+        obs_texts = []
         for mem in observation_memories:
             time_s = mem.get('simulationTime', 0)
-            # Extract past received texts from memory
-            if 'receivedTexts' in mem and mem['receivedTexts']:
-                for text in mem['receivedTexts']:
-                    past_conversations.append(f"- Time {time_s}s: {text['sender']}: \"{text['message']}\"")
-            # Store clean observation (without receivedTexts) for memory
-            clean_mem = {k: v for k, v in mem.items() if k != 'receivedTexts'}
-            obs_mem_text_parts.append(f"- Time {time_s}s: {clean_mem}")
+            readable_obs = self._format_observation_readable(mem)
+            obs_texts.append(f"- At time {time_s}s {readable_obs}")
         
-        obs_mem_text = "\n".join(obs_mem_text_parts) if obs_mem_text_parts else "- No recent observations"
-        
-        # Format past conversations section
-        past_conversation_text = "\n".join(past_conversations) if past_conversations else "- No past messages"
-        
-        # Get simulation time from sensory data
-        simulation_time = int(sensory_data.get('simulationTime', 0))
+        obs_mem_text = "\n".join(obs_texts) if obs_texts else "- No recent observations"
         
         prompt = f"""Current State:
 Position: ({position['x']:.1f}, {position['z']:.1f}). Simulation Time: {simulation_time}s
 
-Current Conversation (messages you just received):
-{current_conversation}
-
-Current Observations (what I see right now):
+Current Observations (what YOU personally see right now):
 {obs_text}
 
-Past Actions (what I decided to do):
+Current Conversation (messages OTHER agents sent YOU):
+{current_conversation}
+
+Past Actions (what YOU decided to do):
 {action_mem_text}
 
-Past Conversations (message history):
-{past_conversation_text}
+Past Observations (what YOU personally saw before):
+{obs_mem_text}
 
-Past Observations (what I saw before):
-{obs_mem_text}"""
+Past Conversations (messages from OTHER agents):
+{past_conversation_text}
+"""
         
         return prompt
     
@@ -207,7 +287,7 @@ Past Observations (what I saw before):
                     "type": "function",
                     "function": {
                         "name": "move",
-                        "description": "Move to a specific position in the world",
+                        "description": "Move to a specific position in the world. Use this to explore and collect coins.",
                         "parameters": {
                             "type": "object",
                             "properties": {
@@ -228,17 +308,17 @@ Past Observations (what I saw before):
                     "type": "function",
                     "function": {
                         "name": "text",
-                        "description": "Send a text message to another agent (works at any distance)",
+                        "description": "Send a text message to another agent. Works at any distance. Use frequently to communicate based on your personality.",
                         "parameters": {
                             "type": "object",
                             "properties": {
                                 "agent": {
                                     "type": "string",
-                                    "description": "Name of the agent to text (e.g., 'Alice', 'Bob')"
+                                    "description": "Name of the agent to text"
                                 },
                                 "message": {
                                     "type": "string",
-                                    "description": "The text message to send (keep under 40 words)"
+                                    "description": "Your message content only (don't include your own name or 'Bob:' or 'Alice:' prefix - the recipient knows who you are)"
                                 }
                             },
                             "required": ["agent", "message"]

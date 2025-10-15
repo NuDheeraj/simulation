@@ -13,8 +13,11 @@ class BrainService {
 
     /**
      * Request a decision from an agent's brain (the ONLY backend call needed)
+     * @param {string} agentId - The agent ID
+     * @param {object} sensoryData - Sensory perception data (no conversations)
+     * @param {array} newMessages - New messages received (separate from sensory data)
      */
-    async requestDecision(agentId, sensoryData) {
+    async requestDecision(agentId, sensoryData, newMessages = []) {
         try {
             const response = await fetch(`${this.baseUrl}/${agentId}/brain/decide`, {
                 method: 'POST',
@@ -22,7 +25,8 @@ class BrainService {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    sensory_data: sensoryData
+                    sensory_data: sensoryData,
+                    new_messages: newMessages  // Separate parameter!
                 })
             });
 

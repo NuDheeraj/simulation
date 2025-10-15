@@ -28,14 +28,16 @@ class SensorySystem {
 
     /**
      * Get sensory data for an agent (what they can perceive)
+     * Returns: { sensoryData, newMessages }
      */
     getSensoryData(agentId, worldSimulator = null) {
         const agent = this.agentManager.getAgent(agentId);
         if (!agent) return null;
 
-        // Get received texts from agent's LOCAL state
-        const receivedTexts = this.agentManager.getAndClearReceivedTexts(agentId);
+        // Get and CLEAR received texts (read once strategy!)
+        const newMessages = this.agentManager.getAndClearReceivedTexts(agentId);
 
+        // Sensory data - NO conversations here!
         const sensoryData = {
             agentId: agentId,
             position: this.roundPosition(agent.position),
@@ -44,11 +46,11 @@ class SensorySystem {
             currentAction: agent.currentAction,
             currentUtterance: agent.currentUtterance,
             coinsCollected: agent.coinsCollected || 0,
-            receivedTexts: receivedTexts, // Read from local state
             simulationTime: worldSimulator ? worldSimulator.getSimulationTime() : 0
         };
 
-        return sensoryData;
+        // Return both separately
+        return { sensoryData, newMessages };
     }
 
     /**

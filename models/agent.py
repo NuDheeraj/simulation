@@ -60,13 +60,16 @@ class Agent:
             'position': self.position
         }
     
-    def add_message(self, speaker: str, message: str) -> None:
+    def add_message(self, speaker: str, message: str, time: int = None) -> None:
         """Add an agent-to-agent message to conversation history"""
         self.conversation_history.append({
             "speaker": speaker,
             "message": message,
-            "timestamp": time.time()
+            "time": time if time is not None else 0
         })
+        # Keep conversation history limited
+        if len(self.conversation_history) > self.max_memory_items:
+            self.conversation_history = self.conversation_history[-self.max_memory_items:]
     
     def get_conversation_history(self) -> List[Dict[str, Any]]:
         """Get conversation history"""
@@ -187,7 +190,7 @@ class Agent:
             self.observation_memory = self.observation_memory[-self.max_memory_items:]
         self.logger.debug(f"Observation memory added: {sensory_data}")
     
-    async def make_decision_from_sensory_data(self, sensory_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def make_decision_from_sensory_data(self, sensory_data: Dict[str, Any], new_messages: List[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Make a decision based on sensory input from the world using LLM"""
         
         # Extract sensory information
@@ -207,12 +210,24 @@ class Agent:
         # Get simulation time from sensory data
         simulation_time = sensory_data.get('simulationTime', 0)
         
+        # Store new messages in conversation history (separate from sensory data!)
+        new_messages = new_messages or []
+        num_new_messages = len(new_messages)
+        if new_messages:
+            for text in new_messages:
+                self.add_message(
+                    speaker=text.get('sender', 'Unknown'),
+                    message=text.get('message', ''),
+                    time=simulation_time
+                )
+        
         # Use raw sensory data directly as current observations
         current_observations = [f"Raw sensory data: {sensory_data}"]
         
-        # Get action and observation memories for the prompt (BEFORE adding current observation)
+        # Get action and observation memories for the prompt (AFTER adding new messages)
         action_memories = self.get_action_memories()
         observation_memories = self.get_observation_memories()
+        conversation_history = self.get_conversation_history()  # Includes new messages now!
         
         # Use LLM service for decision making
         decision = await self.llm_service.make_agent_decision(
@@ -222,6 +237,8 @@ class Agent:
             current_observations=current_observations,
             action_memories=action_memories,
             observation_memories=observation_memories,
+            conversation_history=conversation_history,
+            num_new_messages=num_new_messages,  # Just the count!
             system_prompt=self.system_prompt,
             sensory_data=sensory_data,
             agent_logger=self.logger

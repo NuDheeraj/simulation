@@ -442,10 +442,16 @@ class WorldSimulator {
         agent.lastDecisionTime = Date.now();
 
         try {
-            // Send sensory data to brain (including received texts from local state)
-            const sensoryData = this.sensorySystem.getSensoryData(agentId, this);
-            console.log(`Requesting decision from brain ${agentId} with sensory data:`, sensoryData);
-            const decision = await this.brainService.requestDecision(agentId, sensoryData);
+            // Get sensory data and new messages separately (clean architecture!)
+            const { sensoryData, newMessages } = this.sensorySystem.getSensoryData(agentId, this);
+            
+            console.log(`Requesting decision from brain ${agentId}`);
+            console.log(`  Sensory data:`, sensoryData);
+            if (newMessages && newMessages.length > 0) {
+                console.log(`  New messages:`, newMessages);
+            }
+            
+            const decision = await this.brainService.requestDecision(agentId, sensoryData, newMessages);
             
             if (decision) {
                 console.log(`Brain of ${agentId} decided:`, decision);
@@ -631,9 +637,9 @@ class WorldSimulator {
                 return null;
             }
 
-            // Get sensory data and request decision from brain
-            const sensoryData = this.sensorySystem.getSensoryData(agentId, this);
-            const decision = await this.brainService.requestDecision(agentId, sensoryData);
+            // Get sensory data and new messages separately
+            const { sensoryData, newMessages } = this.sensorySystem.getSensoryData(agentId, this);
+            const decision = await this.brainService.requestDecision(agentId, sensoryData, newMessages);
             
             if (decision) {
                 console.log(`Forced decision for ${agentId}:`, decision);

@@ -155,12 +155,22 @@ def brain_decide(agent_id):
             return jsonify({"error": "Sensory data required"}), 400
         
         sensory_data = data['sensory_data']
+        new_messages = data.get('new_messages', [])  # Separate conversation parameter
+        
+        # Validate that sensory data matches the agent
+        sensory_agent_id = sensory_data.get('agentId')
+        if sensory_agent_id and sensory_agent_id != agent_id:
+            agent_logger.error(f"⚠️ MISMATCH: Route agent_id={agent_id} but sensory agentId={sensory_agent_id}")
+            return jsonify({"error": f"Agent ID mismatch: route={agent_id}, sensory={sensory_agent_id}"}), 400
+        
         agent_logger.debug(f"📊 Sensory data for {agent_name}: {sensory_data}")
+        if new_messages:
+            agent_logger.info(f"💬 Received {len(new_messages)} new message(s) for {agent_name}")
         
         # Make decision based on sensory input (now with proper async waiting)
         import asyncio
         agent_logger.info(f"🤔 Making decision for {agent_name}...")
-        decision = asyncio.run(agent.make_decision_from_sensory_data(sensory_data))
+        decision = asyncio.run(agent.make_decision_from_sensory_data(sensory_data, new_messages))
         
         agent_logger.info(f"✅ Decision made: {decision['action']} -> {decision.get('target', 'N/A')}")
         return jsonify({"agent_id": agent_id, "decision": decision})

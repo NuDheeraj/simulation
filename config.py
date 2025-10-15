@@ -14,7 +14,7 @@ class Config:
     # LLM Configuration - All providers use OpenAI-compatible format
     LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'OpenAI')
     LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'http://127.0.0.1:1234/v1')
-    LLM_MODEL = os.environ.get('LLM_MODEL', 'ibm/granite-4-h-tiny')
+    LLM_MODEL = os.environ.get('LLM_MODEL', 'openai/gpt-oss-20b')
     LLM_API_KEY = os.environ.get('LLM_API_KEY', '18b3a699-cbb6-4b66-b9ae-5f15871539fa')
     
     # Shared Environment Context
@@ -34,11 +34,13 @@ SENSORY SYSTEM:
 COMMUNICATION:
 - You can text message other agents at any distance
 - Messages are private between you and the recipient
-- Communication can help with coordination
+- Use texting to coordinate, share info, or interact based on your personality
+- Consider texting when you find coins, see agents, complete exploration, or want to communicate
 
 GOAL:
 - Collect all 10 golden coins scattered around the world
-- Explore systematically to find all coins
+- Explore systematically and communicate with other agents
+- Act according to your personality
 
 AVAILABLE ACTIONS:
 1. move(x, z) - Move to target coordinates
@@ -48,7 +50,6 @@ AVAILABLE ACTIONS:
 2. text(agent, message) - Send a text message to another agent
    - Works at any distance
    - Messages deliver instantly
-   - Keep under 40 words
 
 3. idle() - Rest and observe for 5 seconds
 
@@ -59,10 +60,18 @@ CONSTRAINTS:
     
     # Response Format
     RESPONSE_FORMAT = """RESPONSE FORMAT: You MUST respond with ONLY valid JSON in this exact format:
-{"action": "move|text|idle", "target": {"x": number, "z": number} or {"agent": "Alice"} or {"agent": "Bob"}, "utterance": "text message or null"}
-- For 'move' action: target must be {"x": number, "z": number}
-- For 'text' action: target must be {"agent": "AgentName"} and utterance is required
-- For 'idle' action: target and utterance should be null
+{"action": "move|text|idle", "target": {"x": number, "z": number} or {"agent": "AgentName"}, "utterance": "message or null"}
+
+ACTION TYPES:
+- 'move': target = {"x": number, "z": number}, utterance = null
+- 'text': target = {"agent": "AgentName"}, utterance = "your message"
+- 'idle': target = null, utterance = null
+
+REMINDERS:
+- Use all three action types based on your personality and situation
+- Text other agents to communicate, coordinate, or interact
+- Don't only move - communicate based on your personality
+
 Do not include any other text, explanations, or formatting."""
     
     # Agent configuration (X-Z plane movement, Y is height)
@@ -71,13 +80,13 @@ Do not include any other text, explanations, or formatting."""
     AGENTS = {
         "agent1": {
             "name": "Alice",
-            "personality": "creative and artistic AI agent who loves painting, music, and poetry and enjoys collaborating and texting with others",
+            "personality": "competitive and energetic go-getter who rushes into action, loves to win, and is very chatty and impulsive. Frequently texts to brag, taunt, or share quick updates.",
             "color": "red",
             "position": {"x": -2, "y": 0.6, "z": 1}  # X-Z plane movement, Y is height
         },
         "agent2": {
             "name": "Bob",
-            "personality": "logical and analytical AI agent who excels at mathematics, science, and problem-solving and values efficient coordination",
+            "personality": "cautious and methodical strategist who prefers careful planning over speed. Regularly texts to share information, suggest strategies, and coordinate systematically.",
             "color": "blue",
             "position": {"x": 2, "y": 0.6, "z": 1}  # X-Z plane movement, Y is height
         }
