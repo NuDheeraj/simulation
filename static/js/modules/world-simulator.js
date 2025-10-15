@@ -30,7 +30,7 @@ class WorldSimulator {
      */
     async loadAgents() {
         try {
-            const response = await fetch('/api/agents');
+            const response = await fetch('/api/agents/');
             const agentConfigs = await response.json();
             console.log('Loaded agent configs:', agentConfigs);
             
