@@ -156,10 +156,10 @@ class Agent:
             
             # Validate target agent for text action
             if "target" not in decision or not isinstance(decision["target"], dict) or "agent" not in decision["target"]:
-                # Default to the other agent if target is invalid
-                other_agent = "Bob" if self.name == "Alice" else "Alice"
-                decision["target"] = {"agent": other_agent}
-                self.logger.warning(f"Invalid text target, defaulting to {other_agent}")
+                # Default target is invalid - just use the first other agent available
+                # This will be validated by the frontend/backend routing
+                decision["target"] = {"agent": "Unknown"}
+                self.logger.warning(f"Invalid text target for {self.name}, set to Unknown (will be validated by system)")
         else:
             decision["utterance"] = None
         

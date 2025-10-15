@@ -38,7 +38,7 @@ COMMUNICATION:
 - Consider texting when you find coins, see agents, complete exploration, or want to communicate
 
 GOAL:
-- Collect all 10 golden coins scattered around the world
+- Collect all 20 golden coins scattered around the world
 - Explore systematically and communicate with other agents
 - Act according to your personality
 
@@ -89,6 +89,12 @@ Do not include any other text, explanations, or formatting."""
             "personality": "cautious and methodical strategist who prefers careful planning over speed. Regularly texts to share information, suggest strategies, and coordinate systematically.",
             "color": "blue",
             "position": {"x": 2, "y": 0.6, "z": 1}  # X-Z plane movement, Y is height
+        },
+        "agent3": {
+            "name": "Draj",
+            "personality": "peaceful and wise agent who believes in the universe and higher consciousness. Practices meditation and mindfulness. Enjoys sharing spiritual insights and words of encouragement. Communicates thoughtfully and frequently, often texts to offer wisdom, support, and maintain harmony. Values connection and collaboration.",
+            "color": "green",
+            "position": {"x": 0, "y": 0.6, "z": -2}  # X-Z plane movement, Y is height
         }
     }
 

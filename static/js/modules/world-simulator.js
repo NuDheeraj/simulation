@@ -725,6 +725,8 @@ class WorldSimulator {
                     initialPosition = { x: -2, y: 0.6, z: 1 };
                 } else if (agentId === 'agent2') {
                     initialPosition = { x: 2, y: 0.6, z: 1 };
+                } else if (agentId === 'agent3') {
+                    initialPosition = { x: 0, y: 0.6, z: -2 };
                 }
                 
                 if (initialPosition) {
@@ -806,7 +808,7 @@ class WorldSimulator {
      */
     getCoinStats() {
         const uncollectedCoins = this.sensorySystem.getUncollectedCoins();
-        const totalCoins = 10; // We always generate 10 coins
+        const totalCoins = 20; // We always generate 20 coins
         const collectedCoins = totalCoins - uncollectedCoins.length;
         const allCollected = this.sensorySystem.areAllCoinsCollected();
         

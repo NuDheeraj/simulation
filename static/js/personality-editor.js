@@ -74,6 +74,7 @@ class PersonalityEditor {
         const avatarMap = {
             'Alice': '🎨',
             'Bob': '🔬',
+            'draj': '🌟',
             'Charlie': '🎭',
             'Diana': '📚',
             'Eve': '🎵'

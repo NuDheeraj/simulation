@@ -195,6 +195,7 @@ function setupSimulationControls() {
     const resetBtn = document.getElementById('resetSimulation');
     const forceAgent1Btn = document.getElementById('forceAgent1');
     const forceAgent2Btn = document.getElementById('forceAgent2');
+    const forceAgent3Btn = document.getElementById('forceAgent3');
     const statusSpan = document.getElementById('simulationStatus');
     
     if (startBtn) {
@@ -227,6 +228,12 @@ function setupSimulationControls() {
     if (forceAgent2Btn) {
         forceAgent2Btn.addEventListener('click', async () => {
             await window.app.forceAgentDecision('agent2');
+        });
+    }
+    
+    if (forceAgent3Btn) {
+        forceAgent3Btn.addEventListener('click', async () => {
+            await window.app.forceAgentDecision('agent3');
         });
     }
     

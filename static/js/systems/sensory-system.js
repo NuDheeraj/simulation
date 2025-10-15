@@ -299,15 +299,15 @@ class SensorySystem {
      * Initialize world objects
      */
     initializeWorldObjects() {
-        // Generate 10 random coins
+        // Generate 20 random coins
         this.generateCoins();
     }
     
     /**
-     * Generate 10 random coins in the world
+     * Generate 20 random coins in the world
      */
     generateCoins() {
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 20; i++) {
             const coinId = `coin_${i}`;
             const coin = {
                 id: coinId,
@@ -322,7 +322,7 @@ class SensorySystem {
             };
             this.worldObjects.set(coinId, coin);
         }
-        console.log('Generated 10 coins in the world');
+        console.log('Generated 20 coins in the world');
     }
 
     /**

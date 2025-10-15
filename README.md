@@ -246,7 +246,7 @@ The simulation uses an **event-driven decision system** for natural, responsive 
 
 ### World Objects
 - **Purple Sphere**: Landmark at (0, 0, 0) that agents can investigate
-- **Collectible Coins**: 10 golden coins scattered around the world for agents to collect
+- **Collectible Coins**: 20 golden coins scattered around the world for agents to collect
 - **Ground Plane**: 10x10 unit gray surface
 - **Lighting**: Hemispheric + directional lighting for visibility
 

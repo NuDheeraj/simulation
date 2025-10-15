@@ -6,6 +6,7 @@ class AgentManager {
         this.agents = new Map(); // Agent bodies in the world
         this.agentSpheres = new Map(); // 3D visual representations
         this.agentLabels = new Map(); // Name labels above agents
+        this.thinkingIndicators = new Map(); // Loading indicators for thinking agents
     }
 
     /**
@@ -24,7 +25,8 @@ class AgentManager {
             utteranceEndTime: 0,
             brainId: agentId, // Reference to brain service
             coinsCollected: 0, // Track coins collected by this agent
-            receivedTexts: [] // Store received text messages locally
+            receivedTexts: [], // Store received text messages locally
+            isMakingDecision: false // Track if agent is waiting for LLM decision
         });
     }
 
@@ -62,11 +64,18 @@ class AgentManager {
             
             // Create material
             const material = new BABYLON.StandardMaterial(`${agentId}_material`, scene);
-            if (agent.color === 'red') {
-                material.diffuseColor = new BABYLON.Color3(1, 0.2, 0.2);
-            } else {
-                material.diffuseColor = new BABYLON.Color3(0.2, 0.2, 1);
-            }
+            
+            // Color mapping for agents
+            const colorMap = {
+                'red': new BABYLON.Color3(1, 0.2, 0.2),
+                'blue': new BABYLON.Color3(0.2, 0.2, 1),
+                'green': new BABYLON.Color3(0.2, 1, 0.2),
+                'yellow': new BABYLON.Color3(1, 1, 0.2),
+                'purple': new BABYLON.Color3(0.8, 0.2, 0.8),
+                'orange': new BABYLON.Color3(1, 0.6, 0.2)
+            };
+            
+            material.diffuseColor = colorMap[agent.color] || new BABYLON.Color3(0.5, 0.5, 0.5); // Default to gray
             capsule.material = material;
             
             // Create visibility sphere around agent
@@ -75,13 +84,19 @@ class AgentManager {
             // Create floating chat bubble
             chatBubbleManager.createFloatingChat(agentId, agent);
             
+            // Store reference FIRST so thinking indicator can find it
+            this.agentSpheres.set(agentId, capsule);
+            console.log(`Stored sphere reference for ${agentId}`);
+            
             // Create name label above agent
             this.createNameLabel(agentId, agent, capsule, scene);
             
-            // Store reference
-            this.agentSpheres.set(agentId, capsule);
-            console.log(`Stored sphere reference for ${agentId}`);
+            // Create thinking indicator (initially hidden) - after storing capsule reference
+            this.createThinkingIndicator(agentId, agent, scene);
         });
+        
+        // Start update loop for thinking indicators
+        this.startThinkingIndicatorLoop(scene);
     }
     
     /**
@@ -99,11 +114,15 @@ class AgentManager {
         
         // Create transparent material with agent's color - more visible
         const visibilityMaterial = new BABYLON.StandardMaterial(`${agentId}_visibility_material`, scene);
-        if (agent.color === 'red') {
-            visibilityMaterial.diffuseColor = new BABYLON.Color3(1, 0.3, 0.3);
-        } else {
-            visibilityMaterial.diffuseColor = new BABYLON.Color3(0.3, 0.3, 1);
-        }
+        const colorMap = {
+            'red': new BABYLON.Color3(1, 0.3, 0.3),
+            'blue': new BABYLON.Color3(0.3, 0.3, 1),
+            'green': new BABYLON.Color3(0.3, 1, 0.3),
+            'yellow': new BABYLON.Color3(1, 1, 0.3),
+            'purple': new BABYLON.Color3(0.8, 0.3, 0.8),
+            'orange': new BABYLON.Color3(1, 0.6, 0.3)
+        };
+        visibilityMaterial.diffuseColor = colorMap[agent.color] || new BABYLON.Color3(0.5, 0.5, 0.5);
         visibilityMaterial.alpha = 0.3; // More visible
         visibilityMaterial.wireframe = true; // Show as wireframe
         visibilityMaterial.emissiveColor = new BABYLON.Color3(0.1, 0.1, 0.1); // More visible glow
@@ -184,6 +203,81 @@ class AgentManager {
         texture.clear();
         const font = "bold 48px Arial";
         texture.drawText(labelText, null, null, font, "#FFFFFF", "#00000088", true);
+    }
+    
+    /**
+     * Create thinking indicator (loading spinner) above agent
+     */
+    createThinkingIndicator(agentId, agent, scene) {
+        // Create a torus (ring) that will rotate
+        const torus = BABYLON.MeshBuilder.CreateTorus(`${agentId}_thinking`, {
+            diameter: 0.5,
+            thickness: 0.05,
+            tessellation: 16
+        }, scene);
+        
+        // Position above the agent
+        torus.position = new BABYLON.Vector3(0, 1.5, 0);
+        
+        // Get the agent's capsule and parent the torus to it
+        const capsule = this.agentSpheres.get(agentId);
+        if (capsule) {
+            torus.parent = capsule;
+        }
+        
+        // Create glowing material matching agent color
+        const material = new BABYLON.StandardMaterial(`${agentId}_thinking_material`, scene);
+        const colorMap = {
+            'red': new BABYLON.Color3(1, 0.3, 0.3),
+            'blue': new BABYLON.Color3(0.3, 0.3, 1),
+            'green': new BABYLON.Color3(0.3, 1, 0.3),
+            'yellow': new BABYLON.Color3(1, 1, 0.3),
+            'purple': new BABYLON.Color3(0.8, 0.3, 0.8),
+            'orange': new BABYLON.Color3(1, 0.6, 0.3)
+        };
+        
+        const color = colorMap[agent.color] || new BABYLON.Color3(0.8, 0.8, 0.8);
+        material.emissiveColor = color;
+        material.diffuseColor = color;
+        torus.material = material;
+        
+        // Initially hidden
+        torus.setEnabled(false);
+        torus.isPickable = false;
+        
+        // Store reference
+        this.thinkingIndicators.set(agentId, torus);
+        
+        console.log(`Created thinking indicator for ${agentId}`);
+    }
+    
+    /**
+     * Start the thinking indicator update loop
+     */
+    startThinkingIndicatorLoop(scene) {
+        if (this.thinkingIndicatorLoopStarted) {
+            return; // Already started
+        }
+        this.thinkingIndicatorLoopStarted = true;
+        
+        scene.registerBeforeRender(() => {
+            this.agents.forEach((agent, agentId) => {
+                const indicator = this.thinkingIndicators.get(agentId);
+                if (!indicator) return;
+                
+                // Show/hide based on isMakingDecision flag
+                const shouldShow = agent.isMakingDecision;
+                indicator.setEnabled(shouldShow);
+                
+                // Rotate the indicator when visible
+                if (shouldShow) {
+                    indicator.rotation.y += 0.1; // Rotate around Y axis
+                    indicator.rotation.x = Math.sin(Date.now() * 0.003) * 0.2; // Slight wobble
+                }
+            });
+        });
+        
+        console.log('Started thinking indicator update loop');
     }
 
     /**
@@ -331,10 +425,20 @@ class AgentManager {
             this.agentLabels.clear();
         }
         
+        // Remove all thinking indicators
+        if (this.thinkingIndicators) {
+            this.thinkingIndicators.forEach((indicator, agentId) => {
+                if (indicator) {
+                    indicator.dispose();
+                }
+            });
+            this.thinkingIndicators.clear();
+        }
+        
         // Clear the agent spheres reference
         this.agentSpheres.clear();
         
-        console.log('Cleared all agent spheres, visibility spheres, and labels');
+        console.log('Cleared all agent spheres, visibility spheres, labels, and thinking indicators');
     }
 
     /**
