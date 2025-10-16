@@ -7,7 +7,7 @@ class PersonalityEditor {
     constructor(worldSimulator = null) {
         this.agents = [];
         this.originalConfigs = new Map(); // Store original configs for reset
-        this.API_BASE_URL = 'http://localhost:8080/api/agents/';
+        this.API_BASE_URL = '/api/agents/';
         this.worldSimulator = worldSimulator; // Store reference to world simulator
     }
 
